@@ -27,6 +27,13 @@
                         </div>
                         <span>点击或拖拽图片到此处上传</span>
                     </label>
+                    <div class="channel-selector">
+                        <label for="channel-select">上传渠道</label>
+                        <select id="channel-select" name="channel">
+                            <option value="chatglm" selected>ChatGLM</option>
+                            <option value="jd">京东</option>
+                        </select>
+                    </div>
                 </form>
             </div>
             <div class="upload-progress" id="upload-progress" hidden>
@@ -61,6 +68,7 @@
                 <div class="image-info">
                     <span>文件名：<span id="file-name"></span></span>
                     <span>尺寸：<span id="image-size"></span></span>
+                    <span>渠道：<span id="upload-channel"></span></span>
                 </div>
             </div>
             <div class="action-buttons">

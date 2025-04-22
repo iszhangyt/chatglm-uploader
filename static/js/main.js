@@ -2,6 +2,7 @@
 const dropArea = document.getElementById('drop-area');
 const fileInput = document.getElementById('file-input');
 const uploadForm = document.getElementById('upload-form');
+const channelSelect = document.getElementById('channel-select');
 const uploadProgress = document.getElementById('upload-progress');
 const progressBarInner = document.getElementById('progress-bar-inner');
 const progressPercentage = document.getElementById('progress-percentage');
@@ -12,6 +13,7 @@ const htmlCode = document.getElementById('html-code');
 const markdownCode = document.getElementById('markdown-code');
 const fileName = document.getElementById('file-name');
 const imageSize = document.getElementById('image-size');
+const uploadChannel = document.getElementById('upload-channel');
 const copyUrlBtn = document.getElementById('copy-url-btn');
 const copyHtmlBtn = document.getElementById('copy-html-btn');
 const copyMdBtn = document.getElementById('copy-md-btn');
@@ -57,6 +59,11 @@ function setupEventListeners() {
         if (e.dataTransfer.files.length) {
             handleFiles(e.dataTransfer.files);
         }
+    });
+    
+    // 阻止渠道选择器事件冒泡
+    document.querySelector('.channel-selector').addEventListener('click', (e) => {
+        e.stopPropagation();
     });
     
     // 点击上传区域选择文件 - 改为只在标签上触发
@@ -128,9 +135,13 @@ function handleFiles(files) {
     progressBarInner.style.width = '0%';
     progressPercentage.textContent = '0%';
     
+    // 获取选择的渠道
+    const selectedChannel = channelSelect.value;
+    
     // 创建FormData
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('channel', selectedChannel);
     
     // 发送上传请求
     const xhr = new XMLHttpRequest();
@@ -203,7 +214,20 @@ function handleUploadSuccess(result, originalFileName) {
     htmlCode.value = `<img src="${result.file_url}" alt="${originalFileName}">`;
     markdownCode.value = `![${originalFileName}](${result.file_url})`;
     fileName.textContent = originalFileName;
-    imageSize.textContent = `${result.width} × ${result.height}`;
+    
+    // 处理图片尺寸显示
+    if (result.width && result.height) {
+        imageSize.textContent = `${result.width} × ${result.height}`;
+    } else {
+        imageSize.textContent = '尺寸未知';
+    }
+    
+    // 显示上传渠道
+    const channelMap = {
+        'chatglm': 'ChatGLM',
+        'jd': '京东'
+    };
+    uploadChannel.textContent = channelMap[channelSelect.value] || channelSelect.value;
 }
 
 // 重置上传表单
@@ -239,6 +263,12 @@ function renderHistoryList(history) {
         return;
     }
     
+    // 渠道名称映射
+    const channelMap = {
+        'chatglm': 'ChatGLM',
+        'jd': '京东'
+    };
+    
     history.forEach(item => {
         const historyItem = document.createElement('div');
         historyItem.className = 'history-item';
@@ -247,27 +277,28 @@ function renderHistoryList(history) {
             <div class="history-item-info">
                 <div class="history-item-name" title="${item.file_name}">${item.file_name}</div>
                 <div class="history-item-time">${item.upload_time}</div>
+                <div class="history-item-channel">${channelMap[item.channel] || item.channel || '未知'}</div>
             </div>
             <div class="history-item-actions">
-                <button class="btn btn-small copy-url-btn" data-url="${item.file_url}">复制链接</button>
-                <button class="btn btn-small btn-danger delete-btn" data-id="${item.id}">删除</button>
+                <button class="btn copy-url-btn" data-url="${item.file_url}">复制链接</button>
+                <button class="btn delete-btn" data-id="${item.id}">删除</button>
             </div>
         `;
+        
+        // 获取复制和删除按钮
+        const copyUrlButton = historyItem.querySelector('.copy-url-btn');
+        const deleteButton = historyItem.querySelector('.delete-btn');
+        
+        // 添加事件监听器
+        copyUrlButton.addEventListener('click', () => {
+            copyToClipboard(item.file_url, '图片链接已复制');
+        });
+        
+        deleteButton.addEventListener('click', () => {
+            deleteHistoryItem(item.id);
+        });
+        
         historyList.appendChild(historyItem);
-        
-        // 添加复制按钮事件
-        historyItem.querySelector('.copy-url-btn').addEventListener('click', (e) => {
-            const url = e.target.getAttribute('data-url');
-            navigator.clipboard.writeText(url)
-                .then(() => showToast('图片链接已复制'))
-                .catch(() => showToast('复制失败'));
-        });
-        
-        // 添加删除按钮事件
-        historyItem.querySelector('.delete-btn').addEventListener('click', (e) => {
-            const id = e.target.getAttribute('data-id');
-            deleteHistoryItem(id);
-        });
     });
 }
 
@@ -311,11 +342,17 @@ function clearHistory() {
         });
 }
 
+// 复制文本到剪贴板
+function copyToClipboard(text, successMessage) {
+    navigator.clipboard.writeText(text)
+        .then(() => showToast(successMessage || '复制成功'))
+        .catch(() => showToast('复制失败'));
+}
+
 // 复制文本
 function copyText(input, successMessage) {
     input.select();
-    document.execCommand('copy');
-    showToast(successMessage);
+    copyToClipboard(input.value, successMessage);
 }
 
 // 显示提示消息
