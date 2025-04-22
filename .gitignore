@@ -1,0 +1,7 @@
+.venv/
+data/*
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
