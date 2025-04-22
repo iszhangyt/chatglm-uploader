@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>验证 - ChatGLM图床</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .verify-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .verify-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .verify-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .verify-input:focus {
+            border-color: #1890ff;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+            outline: none;
+        }
+        
+        .verify-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .verify-btn:hover {
+            background-color: #0c7ad1;
+        }
+        
+        .verify-error {
+            color: #f5222d;
+            margin-top: 15px;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="verify-container">
+        <h2 class="verify-title">请输入验证码</h2>
+        <form id="verify-form">
+            <input type="password" id="verify-code" class="verify-input" placeholder="请输入验证码" required>
+            <button type="submit" class="verify-btn">验证</button>
+            <div id="verify-error" class="verify-error"></div>
+        </form>
+    </div>
+
+    <!-- 提示框 -->
+    <div class="toast" id="toast" hidden></div>
+
+    <script>
+        // DOM元素
+        const verifyForm = document.getElementById('verify-form');
+        const verifyCode = document.getElementById('verify-code');
+        const verifyError = document.getElementById('verify-error');
+        const toast = document.getElementById('toast');
+
+        // 验证表单提交
+        verifyForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const code = verifyCode.value.trim();
+            if (!code) {
+                showError('请输入验证码');
+                return;
+            }
+            
+            // 发送验证请求
+            fetch('/api/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ code: code })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 0) {
+                    // 保存验证状态
+                    localStorage.setItem('verificationToken', data.token);
+                    // 验证成功，跳转到主页
+                    showToast('验证成功，即将跳转...');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 100);
+                } else {
+                    showError(data.message || '验证失败');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('验证请求失败，请稍后再试');
+            });
+        });
+        
+        // 显示错误信息
+        function showError(message) {
+            verifyError.textContent = message;
+            verifyError.style.display = 'block';
+        }
+        
+        // 显示提示消息
+        function showToast(message) {
+            toast.textContent = message;
+            toast.hidden = false;
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    toast.hidden = true;
+                    toast.style.opacity = '1';
+                }, 300);
+            }, 2000);
+        }
+    </script>
+</body>
+</html> 

@@ -1,10 +1,13 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, url_for
 from flask_cors import CORS
 import os
 import json
 import requests
 from datetime import datetime
 import uuid
+import hashlib
+import time
+import secrets
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -12,6 +15,7 @@ CORS(app)
 # 创建上传历史存储目录
 UPLOAD_HISTORY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 UPLOAD_HISTORY_FILE = os.path.join(UPLOAD_HISTORY_DIR, 'history.json')
+VERIFICATION_CONFIG_FILE = os.path.join(UPLOAD_HISTORY_DIR, 'verification.json')
 
 if not os.path.exists(UPLOAD_HISTORY_DIR):
     os.makedirs(UPLOAD_HISTORY_DIR)
@@ -19,6 +23,41 @@ if not os.path.exists(UPLOAD_HISTORY_DIR):
 if not os.path.exists(UPLOAD_HISTORY_FILE):
     with open(UPLOAD_HISTORY_FILE, 'w', encoding='utf-8') as f:
         json.dump([], f)
+
+# 创建或加载验证配置
+def init_verification_config():
+    if not os.path.exists(VERIFICATION_CONFIG_FILE):
+        # 创建默认验证码和盐值
+        default_code = "admin123"
+        default_salt = secrets.token_hex(16)
+        
+        # 计算哈希值
+        hash_obj = hashlib.sha256((default_code + default_salt).encode())
+        hashed_code = hash_obj.hexdigest()
+        
+        verification_config = {
+            "code_hash": hashed_code,
+            "salt": default_salt,
+            "valid_tokens": {}
+        }
+        
+        with open(VERIFICATION_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(verification_config, f, ensure_ascii=False, indent=2)
+        
+        return verification_config
+    else:
+        try:
+            with open(VERIFICATION_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            # 如果文件损坏，重新创建
+            os.remove(VERIFICATION_CONFIG_FILE)
+            return init_verification_config()
+
+# 保存验证配置
+def save_verification_config(config):
+    with open(VERIFICATION_CONFIG_FILE, 'w', encoding='utf-8') as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
 
 # 读取上传历史
 def get_upload_history():
@@ -33,12 +72,78 @@ def save_upload_history(history):
     with open(UPLOAD_HISTORY_FILE, 'w', encoding='utf-8') as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
+# 生成token
+def generate_token():
+    return secrets.token_hex(32)
+
+# 验证token是否有效
+def verify_token(token):
+    config = init_verification_config()
+    if token in config["valid_tokens"]:
+        # 检查token是否过期（这里可以设置过期时间，比如30天）
+        return True
+    return False
+
+# 初始化验证配置
+init_verification_config()
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
+@app.route('/verify')
+def verify_page():
+    return render_template('verify.html')
+
+@app.route('/api/verify', methods=['POST'])
+def verify():
+    data = request.json
+    if not data or 'code' not in data:
+        return jsonify({'status': 1, 'message': '无效的请求'}), 400
+    
+    code = data['code']
+    config = init_verification_config()
+    
+    # 验证码验证
+    hash_obj = hashlib.sha256((code + config["salt"]).encode())
+    hashed_code = hash_obj.hexdigest()
+    
+    if hashed_code != config["code_hash"]:
+        return jsonify({'status': 1, 'message': '验证码错误'}), 401
+    
+    # 生成新的token
+    token = generate_token()
+    
+    # 保存token
+    config["valid_tokens"][token] = {
+        "created_at": time.time(),
+        "expires_at": time.time() + 30 * 24 * 60 * 60  # 30天有效期
+    }
+    
+    save_verification_config(config)
+    
+    return jsonify({'status': 0, 'message': '验证成功', 'token': token})
+
+@app.route('/api/check_verification', methods=['POST'])
+def check_verification():
+    data = request.json
+    if not data or 'token' not in data:
+        return jsonify({'status': 1, 'message': '无效的请求'}), 400
+    
+    token = data['token']
+    
+    if verify_token(token):
+        return jsonify({'status': 0, 'message': '验证有效'})
+    else:
+        return jsonify({'status': 1, 'message': '验证已过期或无效'}), 401
+
 @app.route('/upload', methods=['POST'])
 def upload_image():
+    # 验证token
+    token = request.headers.get('X-Verification-Token')
+    if not token or not verify_token(token):
+        return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
+    
     if 'file' not in request.files:
         return jsonify({'status': 1, 'message': '没有文件'}), 400
     
@@ -200,11 +305,21 @@ def upload_to_jd(temp_file_path, file):
 
 @app.route('/history', methods=['GET'])
 def get_history():
+    # 验证token
+    token = request.headers.get('X-Verification-Token')
+    if not token or not verify_token(token):
+        return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
+    
     history = get_upload_history()
     return jsonify({'status': 0, 'message': 'success', 'result': history})
 
 @app.route('/delete_history/<item_id>', methods=['DELETE'])
 def delete_history_item(item_id):
+    # 验证token
+    token = request.headers.get('X-Verification-Token')
+    if not token or not verify_token(token):
+        return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
+    
     history = get_upload_history()
     new_history = [item for item in history if item['id'] != item_id]
     
@@ -216,6 +331,11 @@ def delete_history_item(item_id):
 
 @app.route('/clear_history', methods=['DELETE'])
 def clear_history():
+    # 验证token
+    token = request.headers.get('X-Verification-Token')
+    if not token or not verify_token(token):
+        return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
+    
     save_upload_history([])
     return jsonify({'status': 0, 'message': '清除成功'})
 

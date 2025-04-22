@@ -28,9 +28,55 @@ let isUploading = false;
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
+    // 检查验证状态
+    checkVerification();
+});
+
+// 检查验证状态
+function checkVerification() {
+    const token = localStorage.getItem('verificationToken');
+    
+    // 验证令牌存在，验证其有效性
+    if (token) {
+        fetch('/api/check_verification', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token: token })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 0) {
+                // 验证有效，初始化应用
+                initializeApp();
+            } else {
+                // 验证无效，跳转到验证页
+                redirectToVerify();
+            }
+        })
+        .catch(error => {
+            console.error('验证检查失败:', error);
+            redirectToVerify();
+        });
+    } else {
+        // 没有验证令牌，跳转到验证页
+        redirectToVerify();
+    }
+}
+
+// 跳转到验证页
+function redirectToVerify() {
+    window.location.href = '/verify';
+}
+
+// 初始化应用
+function initializeApp() {
     loadHistory();
     setupEventListeners();
-});
+    // 恢复用户选择的渠道
+    restoreSelectedChannel();
+}
 
 // 设置事件监听器
 function setupEventListeners() {
@@ -41,6 +87,11 @@ function setupEventListeners() {
     uploadForm.addEventListener('submit', (e) => {
         e.preventDefault();
         return false;
+    });
+    
+    // 渠道选择事件 - 保存用户选择
+    channelSelect.addEventListener('change', (e) => {
+        saveSelectedChannel(e.target.value);
     });
     
     // 拖放区域事件
@@ -172,6 +223,11 @@ function handleFiles(files) {
             } catch (e) {
                 showToast('解析响应失败');
             }
+        } else if (xhr.status === 401) {
+            // 验证已过期，重新验证
+            localStorage.removeItem('verificationToken');
+            redirectToVerify();
+            showToast('验证已过期，请重新验证');
         } else {
             showToast(`上传失败: ${xhr.statusText}`);
         }
@@ -199,6 +255,13 @@ function handleFiles(files) {
     
     // 发送请求
     xhr.open('POST', '/upload');
+    
+    // 添加验证令牌
+    const token = localStorage.getItem('verificationToken');
+    if (token) {
+        xhr.setRequestHeader('X-Verification-Token', token);
+    }
+    
     xhr.send(formData);
 }
 
@@ -239,19 +302,35 @@ function resetUploadForm() {
 
 // 加载历史记录
 function loadHistory() {
-    fetch('/history')
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 0) {
-                renderHistoryList(data.result);
-            } else {
-                showToast(`获取历史记录失败: ${data.message}`);
-            }
-        })
-        .catch(error => {
+    const token = localStorage.getItem('verificationToken');
+    
+    fetch('/history', {
+        headers: {
+            'X-Verification-Token': token
+        }
+    })
+    .then(response => {
+        if (response.status === 401) {
+            // 验证已过期，重新验证
+            localStorage.removeItem('verificationToken');
+            redirectToVerify();
+            throw new Error('验证已过期');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.status === 0) {
+            renderHistoryList(data.result);
+        } else {
+            showToast(`获取历史记录失败: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        if (error.message !== '验证已过期') {
             showToast('获取历史记录失败');
             console.error('Error loading history:', error);
-        });
+        }
+    });
 }
 
 // 渲染历史记录列表
@@ -304,20 +383,37 @@ function renderHistoryList(history) {
 
 // 删除历史记录项
 function deleteHistoryItem(id) {
-    fetch(`/delete_history/${id}`, { method: 'DELETE' })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 0) {
-                loadHistory(); // 刷新历史记录
-                showToast('删除成功');
-            } else {
-                showToast(`删除失败: ${data.message}`);
-            }
-        })
-        .catch(error => {
+    const token = localStorage.getItem('verificationToken');
+    
+    fetch(`/delete_history/${id}`, { 
+        method: 'DELETE',
+        headers: {
+            'X-Verification-Token': token
+        }
+    })
+    .then(response => {
+        if (response.status === 401) {
+            // 验证已过期，重新验证
+            localStorage.removeItem('verificationToken');
+            redirectToVerify();
+            throw new Error('验证已过期');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.status === 0) {
+            loadHistory(); // 刷新历史记录
+            showToast('删除成功');
+        } else {
+            showToast(`删除失败: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        if (error.message !== '验证已过期') {
             showToast('删除失败');
             console.error('Error deleting history item:', error);
-        });
+        }
+    });
 }
 
 // 清空历史记录
@@ -326,20 +422,37 @@ function clearHistory() {
         return;
     }
     
-    fetch('/clear_history', { method: 'DELETE' })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 0) {
-                loadHistory(); // 刷新历史记录
-                showToast('历史记录已清空');
-            } else {
-                showToast(`清空失败: ${data.message}`);
-            }
-        })
-        .catch(error => {
+    const token = localStorage.getItem('verificationToken');
+    
+    fetch('/clear_history', { 
+        method: 'DELETE',
+        headers: {
+            'X-Verification-Token': token
+        }
+    })
+    .then(response => {
+        if (response.status === 401) {
+            // 验证已过期，重新验证
+            localStorage.removeItem('verificationToken');
+            redirectToVerify();
+            throw new Error('验证已过期');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.status === 0) {
+            loadHistory(); // 刷新历史记录
+            showToast('历史记录已清空');
+        } else {
+            showToast(`清空失败: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        if (error.message !== '验证已过期') {
             showToast('清空失败');
             console.error('Error clearing history:', error);
-        });
+        }
+    });
 }
 
 // 复制文本到剪贴板
@@ -367,4 +480,17 @@ function showToast(message) {
             toast.style.opacity = '1';
         }, 300);
     }, 2000);
+}
+
+// 保存用户选择的渠道到localStorage
+function saveSelectedChannel(channel) {
+    localStorage.setItem('preferredUploadChannel', channel);
+}
+
+// 从localStorage恢复用户选择的渠道
+function restoreSelectedChannel() {
+    const savedChannel = localStorage.getItem('preferredUploadChannel');
+    if (savedChannel) {
+        channelSelect.value = savedChannel;
+    }
 } 
