@@ -55,6 +55,11 @@ h2 {
     background-color: #f7fafd;
 }
 
+.upload-area:hover .upload-tips {
+    color: #1890ff;
+    font-weight: 500;
+}
+
 .upload-area.dragover {
     border-color: #1890ff;
     background-color: #f0f7ff;
@@ -88,6 +93,18 @@ h2 {
 
 .upload-area:hover .file-label span {
     color: #555;
+}
+
+.upload-tips {
+    font-size: 13px;
+    color: #888;
+    margin-top: 10px;
+    text-align: center;
+    font-style: italic;
+}
+
+.upload-area:hover .upload-tips {
+    color: #666;
 }
 
 /* 进度条样式 */

@@ -25,6 +25,8 @@ const toast = document.getElementById('toast');
 
 // 上传状态标记
 let isUploading = false;
+// 鼠标是否在上传区域内
+let isMouseOverDropArea = false;
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
@@ -109,6 +111,45 @@ function setupEventListeners() {
         dropArea.classList.remove('dragover');
         if (e.dataTransfer.files.length) {
             handleFiles(e.dataTransfer.files);
+        }
+    });
+    
+    // 鼠标进入上传区域
+    dropArea.addEventListener('mouseenter', () => {
+        isMouseOverDropArea = true;
+    });
+    
+    // 鼠标离开上传区域
+    dropArea.addEventListener('mouseleave', () => {
+        isMouseOverDropArea = false;
+    });
+    
+    // 剪贴板粘贴事件 - 全局监听粘贴事件，但仅在鼠标悬停在上传区域时处理
+    document.addEventListener('paste', (e) => {
+        // 只有在上传区域可见且鼠标在上传区域内时才处理粘贴
+        if (dropArea.hidden || !isMouseOverDropArea) {
+            return;
+        }
+        
+        const items = e.clipboardData.items;
+        let imageFile = null;
+        
+        // 遍历粘贴的内容
+        for (let i = 0; i < items.length; i++) {
+            // 如果是图片类型
+            if (items[i].type.indexOf('image') !== -1) {
+                imageFile = items[i].getAsFile();
+                break;
+            }
+        }
+        
+        // 如果找到图片，处理上传
+        if (imageFile) {
+            e.preventDefault(); // 阻止默认粘贴行为
+            handleFiles([imageFile]);
+            
+            // 显示粘贴上传提示
+            showToast('已从剪贴板获取图片，正在上传...');
         }
     });
     
