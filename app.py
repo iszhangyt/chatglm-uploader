@@ -340,4 +340,4 @@ def clear_history():
     return jsonify({'status': 0, 'message': '清除成功'})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5500) 
+    app.run(debug=False, host='0.0.0.0', port=5500) 

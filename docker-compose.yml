@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  webapp:
+    build: .
+    ports:
+      - "5500:5500"
+    volumes:
+      - ./data:/app/data
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Shanghai 
