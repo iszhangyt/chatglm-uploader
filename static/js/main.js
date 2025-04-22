@@ -359,18 +359,25 @@ function renderHistoryList(history) {
                 <div class="history-item-channel">${channelMap[item.channel] || item.channel || '未知'}</div>
             </div>
             <div class="history-item-actions">
-                <button class="btn copy-url-btn" data-url="${item.file_url}">复制链接</button>
-                <button class="btn delete-btn" data-id="${item.id}">删除</button>
+                <button class="btn copy-url-btn" title="复制链接" data-url="${item.file_url}">复制链接</button>
+                <button class="btn copy-md-btn" title="复制Markdown格式" data-url="${item.file_url}" data-filename="${item.file_name}">MD格式</button>
+                <button class="btn delete-btn" title="删除记录" data-id="${item.id}">删除记录</button>
             </div>
         `;
         
         // 获取复制和删除按钮
         const copyUrlButton = historyItem.querySelector('.copy-url-btn');
+        const copyMdButton = historyItem.querySelector('.copy-md-btn');
         const deleteButton = historyItem.querySelector('.delete-btn');
         
         // 添加事件监听器
         copyUrlButton.addEventListener('click', () => {
             copyToClipboard(item.file_url, '图片链接已复制');
+        });
+        
+        copyMdButton.addEventListener('click', () => {
+            const mdText = `![${item.file_name}](${item.file_url})`;
+            copyToClipboard(mdText, 'Markdown格式已复制');
         });
         
         deleteButton.addEventListener('click', () => {
@@ -457,9 +464,35 @@ function clearHistory() {
 
 // 复制文本到剪贴板
 function copyToClipboard(text, successMessage) {
-    navigator.clipboard.writeText(text)
-        .then(() => showToast(successMessage || '复制成功'))
-        .catch(() => showToast('复制失败'));
+    // 创建一个临时的文本区域元素
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';  // 避免滚动到底部
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    let success = false;
+    try {
+        // 尝试使用document.execCommand API (兼容性更好)
+        success = document.execCommand('copy');
+        if (success) {
+            showToast(successMessage || '复制成功');
+        } else {
+        //     如果execCommand失败，尝试使用Clipboard API
+            navigator.clipboard.writeText(text)
+                .then(() => showToast(successMessage || '复制成功'))
+                .catch(() => showToast('复制失败'));
+        }
+    } catch (err) {
+        console.error('复制失败:', err);
+        showToast('复制失败');
+    }
+    
+    // 移除临时元素
+    document.body.removeChild(textArea);
 }
 
 // 复制文本

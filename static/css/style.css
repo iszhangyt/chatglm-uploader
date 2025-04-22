@@ -238,10 +238,41 @@ h2 {
 
 .history-item-actions {
     display: flex;
-    justify-content: space-between;
-    padding: 8px 10px;
+    justify-content: center;
+    padding: 8px 5px;
     background-color: #f8f9fa;
     border-top: 1px solid #eee;
+    gap: 3px;
+}
+
+.history-item-actions .btn {
+    font-size: 12px;
+    padding: 4px 8px;
+    min-width: initial;
+    flex-grow: 0;
+    white-space: nowrap;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+.history-item-actions .btn:hover {
+    background-color: #d4d4d4;
+    transform: translateY(-1px);
+}
+
+.history-item-actions .copy-url-btn {
+    background-color: #e8f4ff;
+    color: #0076ff;
+}
+
+.history-item-actions .copy-md-btn {
+    background-color: #e8f0e8;
+    color: #00a651;
+}
+
+.history-item-actions .delete-btn {
+    background-color: #ffeeee;
+    color: #ff3a30;
 }
 
 .history-item-channel {
@@ -332,6 +363,17 @@ h2 {
     
     .image-info span {
         margin-bottom: 5px;
+    }
+    
+    .history-item-actions {
+        flex-direction: row;
+        padding: 6px 8px;
+    }
+    
+    .history-item-actions .btn {
+        padding: 5px 8px;
+        font-size: 11px;
+        min-width: 50px;
     }
 }
 
