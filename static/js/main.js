@@ -78,6 +78,30 @@ function initializeApp() {
     setupEventListeners();
     // 恢复用户选择的渠道
     restoreSelectedChannel();
+    
+    // 页面加载完成后检测鼠标是否已经在上传区域上
+    // 使用一次性的mousemove事件来获取鼠标位置
+    let initialPositionChecked = false;
+    function checkInitialMousePosition(e) {
+        if (initialPositionChecked) return;
+        initialPositionChecked = true;
+        
+        const dropAreaRect = dropArea.getBoundingClientRect();
+        if (
+            e.clientX >= dropAreaRect.left &&
+            e.clientX <= dropAreaRect.right &&
+            e.clientY >= dropAreaRect.top &&
+            e.clientY <= dropAreaRect.bottom
+        ) {
+            isMouseOverDropArea = true;
+        }
+        
+        // 移除事件监听器，不再需要它
+        document.removeEventListener('mousemove', checkInitialMousePosition);
+    }
+    
+    // 添加监听器来捕获第一次鼠标移动事件
+    document.addEventListener('mousemove', checkInitialMousePosition);
 }
 
 // 设置事件监听器
