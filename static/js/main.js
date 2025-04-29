@@ -22,6 +22,10 @@ const historyList = document.getElementById('history-list');
 const refreshHistoryBtn = document.getElementById('refresh-history-btn');
 const clearHistoryBtn = document.getElementById('clear-history-btn');
 const toast = document.getElementById('toast');
+// 图片链接上传
+const imageUrlInput = document.getElementById('image-url-input');
+const urlUploadBtn = document.getElementById('url-upload-btn');
+const urlUploadContainer = document.querySelector('.url-upload-container');
 
 // 上传状态标记
 let isUploading = false;
@@ -182,6 +186,19 @@ function setupEventListeners() {
         e.stopPropagation();
     });
     
+    // 图片链接上传按钮 - 不再需要阻止事件冒泡
+    if (urlUploadBtn) {
+        urlUploadBtn.addEventListener('click', handleUrlUpload);
+        
+        // 支持在输入框中按Enter键提交
+        imageUrlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleUrlUpload();
+            }
+        });
+    }
+    
     // 点击上传区域选择文件 - 改为只在标签上触发
     document.querySelector('.file-label').addEventListener('click', (e) => {
         // 阻止事件冒泡，防止触发dropArea的点击事件
@@ -334,6 +351,7 @@ function handleFiles(files) {
 function handleUploadSuccess(result, originalFileName) {
     // 隐藏上传区域，显示结果区域
     dropArea.hidden = true;
+    urlUploadContainer.hidden = true; // 隐藏链接上传区域
     resultSection.hidden = false;
     
     // 设置图片和信息
@@ -361,6 +379,7 @@ function handleUploadSuccess(result, originalFileName) {
 // 重置上传表单
 function resetUploadForm() {
     dropArea.hidden = false;
+    urlUploadContainer.hidden = false; // 显示链接上传区域
     resultSection.hidden = true;
     fileInput.value = '';
 }
@@ -591,4 +610,124 @@ function restoreSelectedChannel() {
     if (savedChannel) {
         channelSelect.value = savedChannel;
     }
+}
+
+// 处理URL上传
+function handleUrlUpload() {
+    // 防止重复上传
+    if (isUploading) {
+        return;
+    }
+    
+    const url = imageUrlInput.value.trim();
+    if (!url) {
+        showToast('请输入图片链接');
+        return;
+    }
+    
+    // 标记上传状态
+    isUploading = true;
+    
+    // 显示进度条
+    uploadProgress.hidden = false;
+    progressBarInner.style.width = '0%';
+    progressPercentage.textContent = '0%';
+    
+    // 获取选择的渠道
+    const selectedChannel = channelSelect.value;
+    
+    // 发送请求到服务器
+    const xhr = new XMLHttpRequest();
+    
+    // 上传进度事件
+    xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100);
+            progressBarInner.style.width = `${percentComplete}%`;
+            progressPercentage.textContent = `${percentComplete}%`;
+        }
+    });
+    
+    // 上传完成事件
+    xhr.addEventListener('load', () => {
+        // 重置上传状态
+        isUploading = false;
+        
+        if (xhr.status === 200) {
+            try {
+                const response = JSON.parse(xhr.responseText);
+                if (response.status === 0) {
+                    const fileName = url.split('/').pop().split('?')[0] || 'image.jpg';
+                    handleUploadSuccess(response.result, fileName);
+                    loadHistory(); // 刷新历史记录
+                    imageUrlInput.value = ''; // 清空输入框
+                } else {
+                    showToast(`上传失败: ${response.message}`);
+                }
+            } catch (e) {
+                showToast('解析响应失败');
+            }
+        } else if (xhr.status === 401) {
+            // 验证已过期，重新验证
+            localStorage.removeItem('verificationToken');
+            redirectToVerify();
+            showToast('验证已过期，请重新验证');
+        } else {
+            // 尝试解析错误信息
+            try {
+                const errorResponse = JSON.parse(xhr.responseText);
+                if (errorResponse && errorResponse.message) {
+                    showToast(`上传失败: ${errorResponse.message}`);
+                } else {
+                    showToast(`上传失败: ${xhr.statusText || '未知错误'}`);
+                }
+            } catch (e) {
+                // 如果无法解析JSON，显示更友好的错误信息
+                const statusMessages = {
+                    400: '请求参数错误',
+                    401: '未授权，请重新登录',
+                    403: '禁止访问此资源',
+                    404: '请求的资源不存在',
+                    500: '服务器内部错误',
+                    502: '网关错误',
+                    503: '服务暂时不可用',
+                    504: '网关超时'
+                };
+                const message = statusMessages[xhr.status] || `${xhr.status} ${xhr.statusText || '未知错误'}`;
+                showToast(`上传失败: ${message}`);
+            }
+        }
+        uploadProgress.hidden = true;
+    });
+    
+    // 上传错误事件
+    xhr.addEventListener('error', () => {
+        isUploading = false;
+        showToast('上传失败，请检查网络连接');
+        uploadProgress.hidden = true;
+    });
+    
+    // 上传中断事件
+    xhr.addEventListener('abort', () => {
+        isUploading = false;
+        showToast('上传已取消');
+        uploadProgress.hidden = true;
+    });
+    
+    // 发送请求
+    xhr.open('POST', '/upload_from_url');
+    
+    // 添加验证令牌
+    const token = localStorage.getItem('verificationToken');
+    if (token) {
+        xhr.setRequestHeader('X-Verification-Token', token);
+    }
+    
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send(JSON.stringify({
+        url: url,
+        channel: selectedChannel
+    }));
+    
+    showToast('正在从链接获取图片...');
 } 

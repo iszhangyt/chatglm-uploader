@@ -8,6 +8,11 @@ import uuid
 import hashlib
 import time
 import secrets
+import io
+import tempfile
+import mimetypes
+from urllib.parse import urlparse
+import re
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -211,6 +216,290 @@ def upload_image():
                 print(f"删除临时文件失败: {str(remove_error)}")
                 
         return jsonify({'status': 1, 'message': f'上传失败: {str(e)}'}), 500
+
+@app.route('/upload_from_url', methods=['POST'])
+def upload_from_url():
+    # 临时文件路径，用于在出现异常时清理
+    temp_file_path = None
+    
+    # 验证token
+    token = request.headers.get('X-Verification-Token')
+    if not token or not verify_token(token):
+        return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
+    
+    # 解析请求数据
+    data = request.json
+    if not data or 'url' not in data:
+        return jsonify({'status': 1, 'message': '无效的请求参数'}), 400
+    
+    url = data['url'].strip()
+    if not url:
+        return jsonify({'status': 1, 'message': '图片URL不能为空'}), 400
+    
+    # 简单验证URL格式
+    if not url.startswith(('http://', 'https://')):
+        return jsonify({'status': 1, 'message': '无效的URL格式，必须以http://或https://开头'}), 400
+    
+    channel = data.get('channel', 'chatglm')  # 默认使用ChatGLM渠道
+    
+    try:
+        # 配置代理（如果需要）
+        proxies = None
+        # 如果需要使用代理，可以取消下面注释并修改代理地址
+        # proxies = {
+        #     'http': 'http://your-proxy:port',
+        #     'https': 'http://your-proxy:port'
+        # }
+        
+        # 根据域名设置特定的请求头
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Sec-Fetch-Dest': 'image',
+            'Sec-Fetch-Mode': 'no-cors',
+            'Sec-Fetch-Site': 'cross-site',
+            'Pragma': 'no-cache',
+            'Cache-Control': 'no-cache'
+        }
+        
+        # 解析URL
+        parsed_url = urlparse(url)
+        domain = parsed_url.netloc.lower()
+        
+        # 为特定网站设置特殊请求头
+        domain_referer_map = {
+            # 日本图片网站
+            'pximg.net': 'https://www.pixiv.net/',
+            'pixiv.net': 'https://www.pixiv.net/',
+            'pixiv.re': 'https://pixiv.re/',
+            'pixiv.cat': 'https://pixiv.cat/',
+            
+            # 国际图片网站
+            'imgur.com': 'https://imgur.com/',
+            'i.imgur.com': 'https://imgur.com/',
+            'artstation.com': 'https://www.artstation.com/',
+            'cdnartstation.com': 'https://www.artstation.com/',
+            'deviantart.com': 'https://www.deviantart.com/',
+            'deviantart.net': 'https://www.deviantart.com/',
+            'tumblr.com': 'https://www.tumblr.com/',
+            'pinimg.com': 'https://www.pinterest.com/',
+            'pinterest.com': 'https://www.pinterest.com/',
+            
+            # 社交媒体
+            'twitter.com': 'https://twitter.com/',
+            'twimg.com': 'https://twitter.com/',
+            'x.com': 'https://x.com/',
+            'instagram.com': 'https://www.instagram.com/',
+            'cdninstagram.com': 'https://www.instagram.com/',
+            'fbcdn.net': 'https://www.facebook.com/',
+            'facebook.com': 'https://www.facebook.com/',
+            
+            # 中文图片网站
+            'weibo.cn': 'https://weibo.com/',
+            'weibo.com': 'https://weibo.com/',
+            'sinaimg.cn': 'https://weibo.com/',
+            'sinajs.cn': 'https://weibo.com/',
+            'qq.com': 'https://www.qq.com/',
+            'qpic.cn': 'https://www.qq.com/',
+            'qlogo.cn': 'https://www.qq.com/',
+            'baidu.com': 'https://www.baidu.com/',
+            'bdimg.com': 'https://www.baidu.com/',
+            'bcebos.com': 'https://www.baidu.com/',
+            'zhihu.com': 'https://www.zhihu.com/',
+            'zhimg.com': 'https://www.zhihu.com/'
+        }
+        
+        # 寻找匹配的域名
+        for key, referer in domain_referer_map.items():
+            if key in domain:
+                headers['Referer'] = referer
+                # 对于pixiv，添加一个额外的origin头，并设置更详细的referer
+                if 'pximg.net' in domain or 'pixiv' in domain:
+                    # 获取作品ID (如果存在)
+                    artwork_id_match = re.search(r'/(\d+)_', url)
+                    if artwork_id_match:
+                        artwork_id = artwork_id_match.group(1)
+                        headers['Referer'] = f'https://www.pixiv.net/artworks/{artwork_id}'
+                    headers['Origin'] = 'https://www.pixiv.net'
+                    headers['Sec-Fetch-Site'] = 'same-site'
+                break
+        
+        # 一些网站需要Cookie
+        cookies = None
+        if 'pixiv' in domain:
+            # 这里可以添加pixiv的cookies，如果有的话
+            # cookies = {'PHPSESSID': 'your_session_id'}
+            pass
+        
+        # 下载图片
+        try:
+            # 设置更短的超时时间，避免用户等待过长
+            response = requests.get(url, stream=True, timeout=30, proxies=proxies, headers=headers, cookies=cookies)
+            response.raise_for_status()  # 确保请求成功
+        except requests.exceptions.Timeout:
+            return jsonify({'status': 1, 'message': '下载图片超时，请检查URL或稍后重试'}), 400
+        except requests.exceptions.TooManyRedirects:
+            return jsonify({'status': 1, 'message': '图片链接重定向次数过多'}), 400
+        except requests.exceptions.ConnectionError:
+            return jsonify({'status': 1, 'message': '连接错误，无法访问图片URL'}), 400
+        except requests.exceptions.HTTPError as e:
+            return jsonify({'status': 1, 'message': f'HTTP错误: {e.response.status_code}'}), 400
+        except requests.exceptions.RequestException:
+            return jsonify({'status': 1, 'message': '下载图片失败，请检查URL是否有效'}), 400
+        
+        # 检查响应是否为空
+        if not response.content:
+            return jsonify({'status': 1, 'message': '下载的图片内容为空'}), 400
+            
+        # 检查内容类型
+        content_type = response.headers.get('Content-Type', '')
+        if not content_type.startswith('image/'):
+            # 如果服务器没有返回正确的content-type，尝试通过URL的扩展名判断
+            ext = os.path.splitext(url.split('?')[0])[1].lower()
+            if ext and ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
+                # URL有有效的图片扩展名，我们可以继续处理
+                content_type = mimetypes.guess_type(url)[0] or 'image/jpeg'
+            else:
+                # 尝试通过魔术字节来判断文件类型
+                magic_bytes = response.content[:12]
+                if (magic_bytes.startswith(b'\xff\xd8\xff') or  # JPEG
+                    magic_bytes.startswith(b'\x89PNG\r\n\x1a\n') or  # PNG
+                    magic_bytes.startswith(b'GIF8') or  # GIF
+                    magic_bytes.startswith(b'RIFF') or  # WEBP
+                    magic_bytes.startswith(b'BM')):  # BMP
+                    # 推测内容类型
+                    if magic_bytes.startswith(b'\xff\xd8\xff'):
+                        content_type = 'image/jpeg'
+                        ext = '.jpg'
+                    elif magic_bytes.startswith(b'\x89PNG\r\n\x1a\n'):
+                        content_type = 'image/png'
+                        ext = '.png'
+                    elif magic_bytes.startswith(b'GIF8'):
+                        content_type = 'image/gif'
+                        ext = '.gif'
+                    elif magic_bytes.startswith(b'RIFF'):
+                        content_type = 'image/webp'
+                        ext = '.webp'
+                    elif magic_bytes.startswith(b'BM'):
+                        content_type = 'image/bmp'
+                        ext = '.bmp'
+                else:
+                    return jsonify({'status': 1, 'message': '链接内容不是有效的图片'}), 400
+        else:
+            # 从content_type中提取扩展名
+            ext_map = {
+                'image/jpeg': '.jpg',
+                'image/png': '.png',
+                'image/gif': '.gif',
+                'image/webp': '.webp',
+                'image/bmp': '.bmp'
+            }
+            ext = ext_map.get(content_type, '.jpg')
+        
+        try:
+            # 创建临时文件
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
+            temp_file_path = temp_file.name
+            
+            # 将图片内容写入临时文件
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    temp_file.write(chunk)
+            temp_file.close()
+        except Exception as e:
+            return jsonify({'status': 1, 'message': f'创建临时文件失败: {str(e)}'}), 400
+        
+        # 处理文件名 - 控制长度
+        try:
+            # 从URL中提取文件名
+            original_name = url.split('/')[-1].split('?')[0]
+            
+            # 去除文件扩展名以处理基础名称
+            base_name = os.path.splitext(original_name)[0]
+            
+            # 限制基础名称长度，最多保留30个字符
+            if len(base_name) > 30:
+                base_name = base_name[:30]
+            
+            # 如果基础名称为空或太短，生成一个随机名称
+            if not base_name or len(base_name) < 3:
+                base_name = f"img_{uuid.uuid4().hex[:8]}"
+                
+            # 构建最终文件名
+            file_name = f"{base_name}{ext}"
+        except Exception:
+            # 如果文件名处理出错，使用安全的默认名称
+            file_name = f"image_{uuid.uuid4().hex[:8]}{ext}"
+        
+        # 创建一个模拟的文件对象，避免修改现有上传函数
+        class MockFile:
+            def __init__(self, filename, content_type):
+                self.filename = filename
+                self.content_type = content_type
+        
+        mock_file = MockFile(file_name, content_type)
+        
+        result = None
+        
+        # 根据不同的渠道进行上传
+        try:
+            if channel == 'jd':
+                # 上传到京东图床
+                result = upload_to_jd(temp_file_path, mock_file)
+            else:
+                # 默认上传到ChatGLM服务器
+                result = upload_to_chatglm(temp_file_path, mock_file)
+                
+            if not result:
+                return jsonify({'status': 1, 'message': '图床服务器上传失败'}), 400
+        except Exception as e:
+            return jsonify({'status': 1, 'message': f'上传图片时发生错误: {str(e)}'}), 400
+        finally:
+            # 确保无论如何都清理临时文件
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.remove(temp_file_path)
+                except Exception as e:
+                    print(f"删除临时文件失败: {str(e)}")
+        
+        # 保存上传历史
+        try:
+            history = get_upload_history()
+            history_item = {
+                'id': str(uuid.uuid4()),
+                'file_name': file_name,
+                'file_url': result['file_url'],
+                'width': result.get('width', 0),
+                'height': result.get('height', 0),
+                'channel': channel,
+                'upload_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            history.insert(0, history_item)
+            save_upload_history(history)
+        except Exception as e:
+            print(f"保存历史记录失败: {str(e)}")
+            # 不阻止返回上传成功的结果
+        
+        return jsonify({
+            'status': 0,
+            'message': '上传成功',
+            'result': {
+                'file_url': result['file_url'],
+                'width': result.get('width', 0),
+                'height': result.get('height', 0)
+            }
+        })
+    
+    except Exception as e:
+        # 确保临时文件被删除
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+            except Exception:
+                pass
+        
+        return jsonify({'status': 1, 'message': f'处理失败: {str(e)}'}), 400
 
 def upload_to_chatglm(temp_file_path, file):
     """上传到ChatGLM图床"""
