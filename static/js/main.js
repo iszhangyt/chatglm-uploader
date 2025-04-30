@@ -869,32 +869,49 @@ function showConfirmDialog(message, onConfirm) {
     // 显示对话框
     confirmDialog.style.display = 'flex';
     
+    // 标记是否已经处理过确认/取消操作
+    let isHandled = false;
+    
     // 确认按钮事件
     const handleConfirm = () => {
-        confirmDialog.style.display = 'none';
-        onConfirm();
+        // 防止重复处理
+        if (isHandled) return;
+        isHandled = true;
         
-        // 清除事件监听器
+        // 先清除事件监听器
         confirmOkBtn.removeEventListener('click', handleConfirm);
         confirmCancelBtn.removeEventListener('click', handleCancel);
         document.removeEventListener('keydown', handleKeyPress);
+        
+        // 隐藏对话框
+        confirmDialog.style.display = 'none';
+        
+        // 执行确认回调
+        setTimeout(() => onConfirm(), 10);
     };
     
     // 取消按钮事件
     const handleCancel = () => {
-        confirmDialog.style.display = 'none';
+        // 防止重复处理
+        if (isHandled) return;
+        isHandled = true;
         
-        // 清除事件监听器
+        // 先清除事件监听器
         confirmOkBtn.removeEventListener('click', handleConfirm);
         confirmCancelBtn.removeEventListener('click', handleCancel);
         document.removeEventListener('keydown', handleKeyPress);
+        
+        // 隐藏对话框
+        confirmDialog.style.display = 'none';
     };
     
     // 监听Esc和Enter键
     const handleKeyPress = (e) => {
         if (e.key === 'Escape') {
+            e.preventDefault();
             handleCancel();
         } else if (e.key === 'Enter') {
+            e.preventDefault();
             handleConfirm();
         }
     };
