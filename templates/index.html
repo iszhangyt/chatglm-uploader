@@ -109,6 +109,17 @@
     <!-- 提示框 -->
     <div class="toast" id="toast" hidden></div>
 
+    <!-- 确认对话框 -->
+    <div class="confirm-dialog" id="confirm-dialog" style="display: none;">
+        <div class="confirm-dialog-content">
+            <div class="confirm-dialog-message" id="confirm-message"></div>
+            <div class="confirm-dialog-buttons">
+                <button id="confirm-cancel-btn" class="btn">取消</button>
+                <button id="confirm-ok-btn" class="btn btn-primary">确定</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 加载脚本 -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>

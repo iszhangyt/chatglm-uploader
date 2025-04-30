@@ -33,6 +33,11 @@ const currentPageEl = document.getElementById('current-page');
 const totalPagesEl = document.getElementById('total-pages');
 const pageJumpInput = document.getElementById('page-jump-input');
 const pageJumpBtn = document.getElementById('page-jump-btn');
+// 确认对话框元素
+const confirmDialog = document.getElementById('confirm-dialog');
+const confirmMessage = document.getElementById('confirm-message');
+const confirmOkBtn = document.getElementById('confirm-ok-btn');
+const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
 
 // 上传状态标记
 let isUploading = false;
@@ -581,78 +586,80 @@ function updatePaginationControls() {
 
 // 删除历史记录项
 function deleteHistoryItem(id) {
-    const token = localStorage.getItem('verificationToken');
-    
-    fetch(`/delete_history/${id}`, { 
-        method: 'DELETE',
-        headers: {
-            'X-Verification-Token': token
-        }
-    })
-    .then(response => {
-        if (response.status === 401) {
-            // 验证已过期，重新验证
-            localStorage.removeItem('verificationToken');
-            redirectToVerify();
-            throw new Error('验证已过期');
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.status === 0) {
-            // 刷新历史记录，但尝试保持在当前页
-            loadHistory(); // 这将重新计算页数并保持当前页在有效范围内
-            showToast('删除成功');
-        } else {
-            showToast(`删除失败: ${data.message}`);
-        }
-    })
-    .catch(error => {
-        if (error.message !== '验证已过期') {
-            showToast('删除失败');
-            console.error('Error deleting history item:', error);
-        }
+    // 使用自定义确认对话框
+    showConfirmDialog('确定要删除这条记录吗？', () => {
+        const token = localStorage.getItem('verificationToken');
+        
+        fetch(`/delete_history/${id}`, { 
+            method: 'DELETE',
+            headers: {
+                'X-Verification-Token': token
+            }
+        })
+        .then(response => {
+            if (response.status === 401) {
+                // 验证已过期，重新验证
+                localStorage.removeItem('verificationToken');
+                redirectToVerify();
+                throw new Error('验证已过期');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 0) {
+                // 刷新历史记录，但尝试保持在当前页
+                loadHistory(); // 这将重新计算页数并保持当前页在有效范围内
+                showToast('删除成功');
+            } else {
+                showToast(`删除失败: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            if (error.message !== '验证已过期') {
+                showToast('删除失败');
+                console.error('Error deleting history item:', error);
+            }
+        });
     });
 }
 
 // 清空历史记录
 function clearHistory() {
-    if (!confirm('确定要清空所有上传历史吗？')) {
-        return;
-    }
-    
-    const token = localStorage.getItem('verificationToken');
-    
-    fetch('/clear_history', { 
-        method: 'DELETE',
-        headers: {
-            'X-Verification-Token': token
-        }
-    })
-    .then(response => {
-        if (response.status === 401) {
-            // 验证已过期，重新验证
-            localStorage.removeItem('verificationToken');
-            redirectToVerify();
-            throw new Error('验证已过期');
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.status === 0) {
-            // 清空历史后，重置为第一页
-            currentPage = 1;
-            loadHistory();
-            showToast('历史记录已清空');
-        } else {
-            showToast(`清空失败: ${data.message}`);
-        }
-    })
-    .catch(error => {
-        if (error.message !== '验证已过期') {
-            showToast('清空失败');
-            console.error('Error clearing history:', error);
-        }
+    // 使用自定义确认对话框
+    showConfirmDialog('确定要清空所有上传历史吗？', () => {
+        const token = localStorage.getItem('verificationToken');
+        
+        fetch('/clear_history', { 
+            method: 'DELETE',
+            headers: {
+                'X-Verification-Token': token
+            }
+        })
+        .then(response => {
+            if (response.status === 401) {
+                // 验证已过期，重新验证
+                localStorage.removeItem('verificationToken');
+                redirectToVerify();
+                throw new Error('验证已过期');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 0) {
+                // 清空历史后，重置为第一页
+                currentPage = 1;
+                loadHistory();
+                showToast('历史记录已清空');
+            } else {
+                showToast(`清空失败: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            if (error.message !== '验证已过期') {
+                showToast('清空失败');
+                console.error('Error clearing history:', error);
+            }
+        });
     });
 }
 
@@ -852,4 +859,48 @@ function jumpToPage() {
     } else {
         showToast('请输入有效的页码');
     }
+}
+
+// 显示自定义确认对话框
+function showConfirmDialog(message, onConfirm) {
+    // 设置确认信息
+    confirmMessage.textContent = message;
+    
+    // 显示对话框
+    confirmDialog.style.display = 'flex';
+    
+    // 确认按钮事件
+    const handleConfirm = () => {
+        confirmDialog.style.display = 'none';
+        onConfirm();
+        
+        // 清除事件监听器
+        confirmOkBtn.removeEventListener('click', handleConfirm);
+        confirmCancelBtn.removeEventListener('click', handleCancel);
+        document.removeEventListener('keydown', handleKeyPress);
+    };
+    
+    // 取消按钮事件
+    const handleCancel = () => {
+        confirmDialog.style.display = 'none';
+        
+        // 清除事件监听器
+        confirmOkBtn.removeEventListener('click', handleConfirm);
+        confirmCancelBtn.removeEventListener('click', handleCancel);
+        document.removeEventListener('keydown', handleKeyPress);
+    };
+    
+    // 监听Esc和Enter键
+    const handleKeyPress = (e) => {
+        if (e.key === 'Escape') {
+            handleCancel();
+        } else if (e.key === 'Enter') {
+            handleConfirm();
+        }
+    };
+    
+    // 添加事件监听器
+    confirmOkBtn.addEventListener('click', handleConfirm);
+    confirmCancelBtn.addEventListener('click', handleCancel);
+    document.addEventListener('keydown', handleKeyPress);
 } 
