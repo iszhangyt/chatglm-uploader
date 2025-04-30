@@ -26,11 +26,23 @@ const toast = document.getElementById('toast');
 const imageUrlInput = document.getElementById('image-url-input');
 const urlUploadBtn = document.getElementById('url-upload-btn');
 const urlUploadContainer = document.querySelector('.url-upload-container');
+// 分页控制元素
+const prevPageBtn = document.getElementById('prev-page-btn');
+const nextPageBtn = document.getElementById('next-page-btn');
+const currentPageEl = document.getElementById('current-page');
+const totalPagesEl = document.getElementById('total-pages');
+const pageJumpInput = document.getElementById('page-jump-input');
+const pageJumpBtn = document.getElementById('page-jump-btn');
 
 // 上传状态标记
 let isUploading = false;
 // 鼠标是否在上传区域内
 let isMouseOverDropArea = false;
+// 分页相关变量
+let currentPage = 1;
+let totalPages = 1;
+let itemsPerPage = 6; // 每页显示6条记录
+let allHistoryItems = []; // 存储所有历史记录
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
@@ -219,17 +231,57 @@ function setupEventListeners() {
         }
     });
     
-    // 复制按钮事件
-    copyUrlBtn.addEventListener('click', () => copyText(imageUrl, '图片链接已复制'));
-    copyHtmlBtn.addEventListener('click', () => copyText(htmlCode, 'HTML代码已复制'));
-    copyMdBtn.addEventListener('click', () => copyText(markdownCode, 'Markdown代码已复制'));
+    // 分页控制事件
+    prevPageBtn.addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            renderHistoryPage();
+            updatePaginationControls();
+        }
+    });
     
-    // 继续上传按钮
+    nextPageBtn.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+            currentPage++;
+            renderHistoryPage();
+            updatePaginationControls();
+        }
+    });
+    
+    // 页码跳转事件
+    pageJumpBtn.addEventListener('click', () => {
+        jumpToPage();
+    });
+    
+    // 在页码输入框中按回车键也可以跳转
+    pageJumpInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            jumpToPage();
+        }
+    });
+    
+    // 刷新历史记录
+    refreshHistoryBtn.addEventListener('click', loadHistory);
+    
+    // 清空历史记录
+    clearHistoryBtn.addEventListener('click', clearHistory);
+    
+    // 上传成功后继续上传按钮
     uploadAnotherBtn.addEventListener('click', resetUploadForm);
     
-    // 历史记录按钮
-    refreshHistoryBtn.addEventListener('click', loadHistory);
-    clearHistoryBtn.addEventListener('click', clearHistory);
+    // 复制按钮
+    copyUrlBtn.addEventListener('click', () => {
+        copyText(imageUrl, '图片链接已复制');
+    });
+    
+    copyHtmlBtn.addEventListener('click', () => {
+        copyText(htmlCode, 'HTML代码已复制');
+    });
+    
+    copyMdBtn.addEventListener('click', () => {
+        copyText(markdownCode, 'Markdown代码已复制');
+    });
 }
 
 // 处理选择的文件
@@ -349,31 +401,39 @@ function handleFiles(files) {
 
 // 处理上传成功
 function handleUploadSuccess(result, originalFileName) {
+    // 重置为第一页，因为新上传的图片会显示在第一页
+    currentPage = 1;
+    
+    // 重新加载历史记录
+    loadHistory();
+    
+    const fileUrl = result.file_url;
+    const width = result.width || 0;
+    const height = result.height || 0;
+    const channelName = document.getElementById('channel-select').options[document.getElementById('channel-select').selectedIndex].text;
+    
+    // 显示结果区域
+    resultImg.src = fileUrl;
+    imageUrl.value = fileUrl;
+    htmlCode.value = `<img src="${fileUrl}" alt="${originalFileName}" />`;
+    markdownCode.value = `![${originalFileName}](${fileUrl})`;
+    fileName.textContent = originalFileName;
+    
+    if (width && height) {
+        imageSize.textContent = `${width} × ${height}`;
+    } else {
+        imageSize.textContent = '未知';
+    }
+    
+    uploadChannel.textContent = channelName || '未知';
+    
     // 隐藏上传区域，显示结果区域
     dropArea.hidden = true;
     urlUploadContainer.hidden = true; // 隐藏链接上传区域
     resultSection.hidden = false;
     
-    // 设置图片和信息
-    resultImg.src = result.file_url;
-    imageUrl.value = result.file_url;
-    htmlCode.value = `<img src="${result.file_url}" alt="${originalFileName}">`;
-    markdownCode.value = `![${originalFileName}](${result.file_url})`;
-    fileName.textContent = originalFileName;
-    
-    // 处理图片尺寸显示
-    if (result.width && result.height) {
-        imageSize.textContent = `${result.width} × ${result.height}`;
-    } else {
-        imageSize.textContent = '尺寸未知';
-    }
-    
-    // 显示上传渠道
-    const channelMap = {
-        'chatglm': 'ChatGLM',
-        'jd': '京东'
-    };
-    uploadChannel.textContent = channelMap[channelSelect.value] || channelSelect.value;
+    // 将结果区域滚动到可视区域
+    resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // 重置上传表单
@@ -404,7 +464,22 @@ function loadHistory() {
     })
     .then(data => {
         if (data.status === 0) {
-            renderHistoryList(data.result);
+            // 存储所有历史记录
+            allHistoryItems = data.result;
+            
+            // 计算总页数
+            totalPages = Math.ceil(allHistoryItems.length / itemsPerPage);
+            
+            // 如果当前页超出范围，重置为第一页
+            if (currentPage > totalPages) {
+                currentPage = 1;
+            }
+            
+            // 渲染当前页的历史记录
+            renderHistoryPage();
+            
+            // 更新分页控制
+            updatePaginationControls();
         } else {
             showToast(`获取历史记录失败: ${data.message}`);
         }
@@ -472,6 +547,38 @@ function renderHistoryList(history) {
     });
 }
 
+// 渲染当前页的历史记录
+function renderHistoryPage() {
+    // 计算当前页的起始和结束索引
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, allHistoryItems.length);
+    
+    // 获取当前页的记录
+    const currentPageItems = allHistoryItems.slice(startIndex, endIndex);
+    
+    // 渲染当前页记录
+    renderHistoryList(currentPageItems);
+}
+
+// 更新分页控制按钮状态
+function updatePaginationControls() {
+    // 更新页码显示
+    currentPageEl.textContent = currentPage;
+    totalPagesEl.textContent = totalPages || 1;
+    
+    // 更新页码跳转输入框
+    pageJumpInput.value = currentPage;
+    pageJumpInput.max = totalPages || 1;
+    
+    // 更新按钮状态
+    prevPageBtn.disabled = currentPage <= 1;
+    nextPageBtn.disabled = currentPage >= totalPages || totalPages === 0;
+    
+    // 如果没有记录，隐藏分页控制
+    document.getElementById('pagination-controls').style.display = 
+        (totalPages <= 1) ? 'none' : 'flex';
+}
+
 // 删除历史记录项
 function deleteHistoryItem(id) {
     const token = localStorage.getItem('verificationToken');
@@ -493,7 +600,8 @@ function deleteHistoryItem(id) {
     })
     .then(data => {
         if (data.status === 0) {
-            loadHistory(); // 刷新历史记录
+            // 刷新历史记录，但尝试保持在当前页
+            loadHistory(); // 这将重新计算页数并保持当前页在有效范围内
             showToast('删除成功');
         } else {
             showToast(`删除失败: ${data.message}`);
@@ -532,7 +640,9 @@ function clearHistory() {
     })
     .then(data => {
         if (data.status === 0) {
-            loadHistory(); // 刷新历史记录
+            // 清空历史后，重置为第一页
+            currentPage = 1;
+            loadHistory();
             showToast('历史记录已清空');
         } else {
             showToast(`清空失败: ${data.message}`);
@@ -730,4 +840,16 @@ function handleUrlUpload() {
     }));
     
     showToast('正在从链接获取图片...');
+}
+
+// 页码跳转事件
+function jumpToPage() {
+    const page = parseInt(pageJumpInput.value, 10);
+    if (page >= 1 && page <= totalPages) {
+        currentPage = page;
+        renderHistoryPage();
+        updatePaginationControls();
+    } else {
+        showToast('请输入有效的页码');
+    }
 } 

@@ -94,6 +94,15 @@
                 <button id="clear-history-btn" class="btn btn-danger">清空历史</button>
             </div>
             <div class="history-list" id="history-list"></div>
+            <div class="pagination" id="pagination-controls">
+                <button id="prev-page-btn" class="btn">上一页</button>
+                <span id="page-info">第 <span id="current-page">1</span> 页，共 <span id="total-pages">1</span> 页</span>
+                <button id="next-page-btn" class="btn">下一页</button>
+                <div class="page-jump">
+                    <input type="number" id="page-jump-input" min="1" value="1" class="page-jump-input">
+                    <button id="page-jump-btn" class="btn">跳转</button>
+                </div>
+            </div>
         </section>
     </div>
 
