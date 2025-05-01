@@ -14,6 +14,9 @@ import mimetypes
 from urllib.parse import urlparse
 import re
 from PIL import Image, UnidentifiedImageError
+import random
+import logging
+from datetime import timedelta
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -22,6 +25,18 @@ CORS(app)
 UPLOAD_HISTORY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 UPLOAD_HISTORY_FILE = os.path.join(UPLOAD_HISTORY_DIR, 'history.json')
 VERIFICATION_CONFIG_FILE = os.path.join(UPLOAD_HISTORY_DIR, 'verification.json')
+LOG_FILE = os.path.join(UPLOAD_HISTORY_DIR, 'app.log')
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger('image_uploader')
 
 if not os.path.exists(UPLOAD_HISTORY_DIR):
     os.makedirs(UPLOAD_HISTORY_DIR)
@@ -177,7 +192,7 @@ def upload_image():
             try:
                 os.remove(temp_file_path)
             except Exception as e:
-                print(f"删除临时文件失败: {str(e)}")
+                logger.error(f"删除临时文件失败: {str(e)}")
             return jsonify({'status': 1, 'message': '无效的图片文件，请确保提供支持的图片格式：JPG, PNG, GIF, BMP, WEBP'}), 400
         
         # 创建包含验证后信息的文件对象
@@ -203,7 +218,7 @@ def upload_image():
         try:
             os.remove(temp_file_path)
         except Exception as e:
-            print(f"删除临时文件失败: {str(e)}")
+            logger.error(f"删除临时文件失败: {str(e)}")
         
         if not result:
             return jsonify({'status': 1, 'message': '上传失败'}), 500
@@ -233,7 +248,7 @@ def upload_image():
             try:
                 os.remove(temp_file_path)
             except Exception as remove_error:
-                print(f"删除临时文件失败: {str(remove_error)}")
+                logger.error(f"删除临时文件失败: {str(remove_error)}")
                 
         return jsonify({'status': 1, 'message': f'上传失败: {str(e)}'}), 500
 
@@ -272,77 +287,7 @@ def upload_from_url():
         # }
         
         # 根据域名设置特定的请求头
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-            'Accept': 'image/png,image/jpeg,image/jpg,image/webp;q=0.9,image/gif;q=0.8,image/bmp;q=0.7,image/*;q=0.6,*/*;q=0.5',
-            'Sec-Fetch-Dest': 'image',
-            'Sec-Fetch-Mode': 'no-cors',
-            'Sec-Fetch-Site': 'cross-site',
-            'Pragma': 'no-cache',
-            'Cache-Control': 'no-cache'
-        }
-        
-        # 解析URL
-        parsed_url = urlparse(url)
-        domain = parsed_url.netloc.lower()
-        
-        # 为特定网站设置特殊请求头
-        domain_referer_map = {
-            # 日本图片网站
-            'pximg.net': 'https://www.pixiv.net/',
-            'pixiv.net': 'https://www.pixiv.net/',
-            'pixiv.re': 'https://pixiv.re/',
-            'pixiv.cat': 'https://pixiv.cat/',
-            
-            # 国际图片网站
-            'imgur.com': 'https://imgur.com/',
-            'i.imgur.com': 'https://imgur.com/',
-            'artstation.com': 'https://www.artstation.com/',
-            'cdnartstation.com': 'https://www.artstation.com/',
-            'deviantart.com': 'https://www.deviantart.com/',
-            'deviantart.net': 'https://www.deviantart.com/',
-            'tumblr.com': 'https://www.tumblr.com/',
-            'pinimg.com': 'https://www.pinterest.com/',
-            'pinterest.com': 'https://www.pinterest.com/',
-            
-            # 社交媒体
-            'twitter.com': 'https://twitter.com/',
-            'twimg.com': 'https://twitter.com/',
-            'x.com': 'https://x.com/',
-            'instagram.com': 'https://www.instagram.com/',
-            'cdninstagram.com': 'https://www.instagram.com/',
-            'fbcdn.net': 'https://www.facebook.com/',
-            'facebook.com': 'https://www.facebook.com/',
-            
-            # 中文图片网站
-            'weibo.cn': 'https://weibo.com/',
-            'weibo.com': 'https://weibo.com/',
-            'sinaimg.cn': 'https://weibo.com/',
-            'sinajs.cn': 'https://weibo.com/',
-            'qq.com': 'https://www.qq.com/',
-            'qpic.cn': 'https://www.qq.com/',
-            'qlogo.cn': 'https://www.qq.com/',
-            'baidu.com': 'https://www.baidu.com/',
-            'bdimg.com': 'https://www.baidu.com/',
-            'bcebos.com': 'https://www.baidu.com/',
-            'zhihu.com': 'https://www.zhihu.com/',
-            'zhimg.com': 'https://www.zhihu.com/'
-        }
-        
-        # 寻找匹配的域名
-        for key, referer in domain_referer_map.items():
-            if key in domain:
-                headers['Referer'] = referer
-                # 对于pixiv，添加一个额外的origin头，并设置更详细的referer
-                if 'pximg.net' in domain or 'pixiv' in domain:
-                    # 获取作品ID (如果存在)
-                    artwork_id_match = re.search(r'/(\d+)_', url)
-                    if artwork_id_match:
-                        artwork_id = artwork_id_match.group(1)
-                        headers['Referer'] = f'https://www.pixiv.net/artworks/{artwork_id}'
-                    headers['Origin'] = 'https://www.pixiv.net'
-                    headers['Sec-Fetch-Site'] = 'same-site'
-                break
+        headers, domain, base_domain = generate_request_headers(url)
         
         # 一些网站需要Cookie
         cookies = None
@@ -351,21 +296,85 @@ def upload_from_url():
             # cookies = {'PHPSESSID': 'your_session_id'}
             pass
         
-        # 下载图片
-        try:
-            # 设置更短的超时时间，避免用户等待过长
-            response = requests.get(url, stream=True, timeout=30, proxies=proxies, headers=headers, cookies=cookies)
-            response.raise_for_status()  # 确保请求成功
-        except requests.exceptions.Timeout:
-            return jsonify({'status': 1, 'message': '下载图片超时，请检查URL或稍后重试'}), 400
-        except requests.exceptions.TooManyRedirects:
-            return jsonify({'status': 1, 'message': '图片链接重定向次数过多'}), 400
-        except requests.exceptions.ConnectionError:
-            return jsonify({'status': 1, 'message': '连接错误，无法访问图片URL'}), 400
-        except requests.exceptions.HTTPError as e:
-            return jsonify({'status': 1, 'message': f'HTTP错误: {e.response.status_code}'}), 400
-        except requests.exceptions.RequestException:
-            return jsonify({'status': 1, 'message': '下载图片失败，请检查URL是否有效'}), 400
+        # 下载图片 - 添加重试机制和指数退避策略
+        max_retries = 3
+        retry_delay = 1.0  # 初始延迟1秒
+        last_error = None
+        
+        for retry in range(max_retries):
+            try:
+                if retry > 0:
+                    logger.info(f"重试下载 ({retry}/{max_retries}): {url}")
+                    # 指数退避，每次重试增加延迟
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                    
+                    # 重试时可能需要更新请求头
+                    if retry > 1:
+                        # 为了更好地模拟真实浏览器，重新生成请求头
+                        headers, _, _ = generate_request_headers(url)
+                
+                # 发起请求下载图片
+                response = requests.get(url, stream=True, timeout=30, proxies=proxies, headers=headers, cookies=cookies)
+                response.raise_for_status()  # 确保请求成功
+                
+                # 如果成功获取内容，跳出重试循环
+                if response.content:
+                    logger.info(f"成功下载图片: {url}")
+                    break
+                    
+                # 内容为空，继续重试
+                last_error = ValueError("下载的图片内容为空")
+                logger.warning(f"下载内容为空，将重试: {url}")
+                continue
+                
+            except requests.exceptions.Timeout as e:
+                last_error = e
+                logger.warning(f"下载超时，准备重试: {url}")
+                continue
+            except requests.exceptions.ConnectionError as e:
+                last_error = e
+                logger.warning(f"连接错误，准备重试: {url}")
+                continue
+            except requests.exceptions.HTTPError as e:
+                # 对于403 Forbidden或401 Unauthorized，可能是防盗链问题
+                if e.response.status_code in (403, 401):
+                    last_error = e
+                    logger.warning(f"访问被拒绝 (HTTP {e.response.status_code})，尝试调整请求头: {url}")
+                    
+                    # 记录当前的请求头，帮助调试
+                    logger.debug(f"当前请求头: {headers}")
+                    
+                    # 对于被拒绝的请求，尝试使用更通用的请求头或空Referer
+                    if retry == 1:
+                        headers['Referer'] = url  # 使用自身URL作为Referer
+                        logger.debug(f"尝试使用自身URL作为Referer: {url}")
+                    elif retry == 2:
+                        # 最后一次尝试，删除Referer
+                        if 'Referer' in headers:
+                            del headers['Referer']
+                            logger.debug("尝试删除Referer头")
+                    continue
+                else:
+                    raise  # 其他HTTP错误直接抛出
+            except Exception as e:
+                last_error = e
+                # 其他错误，如果有重试次数就继续
+                if retry < max_retries - 1:
+                    logger.warning(f"下载出错，准备重试: {url}, 错误: {str(e)}")
+                    continue
+                raise  # 用完重试次数，重新抛出异常
+        
+        # 用完所有重试次数仍然失败
+        if last_error is not None and 'response' not in locals():
+            if isinstance(last_error, requests.exceptions.Timeout):
+                return jsonify({'status': 1, 'message': '下载图片超时，请检查URL或稍后重试'}), 400
+            elif isinstance(last_error, requests.exceptions.ConnectionError):
+                return jsonify({'status': 1, 'message': '连接错误，无法访问图片URL'}), 400
+            elif isinstance(last_error, requests.exceptions.HTTPError):
+                return jsonify({'status': 1, 'message': f'HTTP错误: {last_error.response.status_code}'}), 400
+            else:
+                return jsonify({'status': 1, 'message': f'下载图片失败: {str(last_error)}'}), 400
         
         # 检查响应是否为空
         if not response.content:
@@ -437,7 +446,7 @@ def upload_from_url():
                 try:
                     os.remove(temp_file_path)
                 except Exception as e:
-                    print(f"删除临时文件失败: {str(e)}")
+                    logger.error(f"删除临时文件失败: {str(e)}")
             return jsonify({'status': 1, 'message': '下载的文件不是支持的图片格式：JPG, PNG, GIF, BMP, WEBP'}), 400
         
         # 处理文件名 - 控制长度
@@ -494,7 +503,7 @@ def upload_from_url():
                 try:
                     os.remove(temp_file_path)
                 except Exception as e:
-                    print(f"删除临时文件失败: {str(e)}")
+                    logger.error(f"删除临时文件失败: {str(e)}")
         
         # 保存上传历史
         try:
@@ -511,7 +520,7 @@ def upload_from_url():
             history.insert(0, history_item)
             save_upload_history(history)
         except Exception as e:
-            print(f"保存历史记录失败: {str(e)}")
+            logger.error(f"保存历史记录失败: {str(e)}")
             # 不阻止返回上传成功的结果
         
         return jsonify({
@@ -558,7 +567,7 @@ def validate_image(file_path, original_filename=None):
                            'gif': 'image/gif', 'webp': 'image/webp', 'bmp': 'image/bmp'}
         
         if not img_format or img_format.lower() not in supported_formats:
-            print(f"不支持的图片格式: {img_format}, 文件: {original_filename}")
+            logger.warning(f"不支持的图片格式: {img_format}, 文件: {original_filename}")
             return None
             
         # 获取正确的content_type
@@ -583,12 +592,13 @@ def validate_image(file_path, original_filename=None):
         }
         img_info['extension'] = ext_map.get(img_format.lower(), '.jpg')
         
+        logger.info(f"图片验证成功: {original_filename}, 格式: {img_format}, 尺寸: {width}x{height}")
         return img_info
     except UnidentifiedImageError:
-        print(f"无法识别的图片: {original_filename}")
+        logger.error(f"无法识别的图片: {original_filename}")
         return None
     except Exception as e:
-        print(f"验证图片时出错: {str(e)}, 文件: {original_filename}")
+        logger.error(f"验证图片时出错: {str(e)}, 文件: {original_filename}")
         return None
 
 def upload_to_chatglm(temp_file_path, file):
@@ -614,17 +624,17 @@ def upload_to_chatglm(temp_file_path, file):
             
             response = requests.request("POST", url, headers=headers, data=payload, files=files)
     except Exception as e:
-        print(f"ChatGLM上传请求失败: {str(e)}")
+        logger.error(f"ChatGLM上传请求失败: {str(e)}")
         return None
     
     if response.status_code != 200:
-        print(f"ChatGLM上传失败: {response.text}")
+        logger.error(f"ChatGLM上传失败: {response.text}")
         return None
     
     result = response.json()
     
     if result['status'] != 0:
-        print(f"ChatGLM上传失败: {result['message']}")
+        logger.error(f"ChatGLM上传失败: {result['message']}")
         return None
     
     # 如果图床返回的尺寸为0，使用我们验证时获取的尺寸
@@ -663,18 +673,18 @@ def upload_to_jd(temp_file_path, file):
             
             response = requests.post(url, headers=headers, files=files)
     except Exception as e:
-        print(f"京东上传请求失败: {str(e)}")
+        logger.error(f"京东上传请求失败: {str(e)}")
         return None
     
     if response.status_code != 200:
-        print(f"京东上传失败: {response.text}")
+        logger.error(f"京东上传失败: {response.text}")
         return None
     
     try:
         result = response.json()
         
         if result['id'] != '1' or not result['msg']:
-            print(f"京东上传失败: {result}")
+            logger.error(f"京东上传失败: {result}")
             return None
         
         # 构建完整URL
@@ -698,7 +708,7 @@ def upload_to_jd(temp_file_path, file):
             'height': height
         }
     except Exception as e:
-        print(f"解析京东上传响应失败: {str(e)}")
+        logger.error(f"解析京东上传响应失败: {str(e)}")
         return None
 
 @app.route('/history', methods=['GET'])
@@ -736,6 +746,139 @@ def clear_history():
     
     save_upload_history([])
     return jsonify({'status': 0, 'message': '清除成功'})
+
+def generate_request_headers(url, use_smart_referer=True):
+    """
+    生成用于图片下载的请求头，智能处理防盗链
+    
+    参数:
+        url: 请求的URL
+        use_smart_referer: 是否使用智能Referer策略
+        
+    返回:
+        dict: 包含所需请求头的字典
+    """
+    # 解析URL获取域信息
+    parsed_url = urlparse(url)
+    domain = parsed_url.netloc.lower()
+    scheme = parsed_url.scheme
+    path = parsed_url.path
+    
+    # 基础域名 (例如从 image.example.com 得到 example.com)
+    base_domain = '.'.join(domain.split('.')[-2:]) if len(domain.split('.')) > 1 else domain
+    
+    # 现代浏览器的User-Agent列表
+    modern_user_agents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Arm Mac OS X 14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.4; rv:133.0) Gecko/20100101 Firefox/133.0',
+        'Mozilla/5.0 (Macintosh; Arm Mac OS X 14.4; rv:133.0) Gecko/20100101 Firefox/133.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/618.1.15 (KHTML, like Gecko) Version/17.4 Safari/618.1.15',
+        'Mozilla/5.0 (Macintosh; Arm Mac OS X 14_4) AppleWebKit/618.1.15 (KHTML, like Gecko) Version/17.4 Safari/618.1.15',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.2550.0'
+    ]
+    
+    # 随机选择一个User-Agent
+    user_agent = random.choice(modern_user_agents)
+    
+    # 基础请求头
+    headers = {
+        'User-Agent': user_agent,
+        'Accept': 'image/png,image/jpeg,image/jpg,image/webp;q=0.9,image/gif;q=0.8,image/bmp;q=0.7,image/*;q=0.6,*/*;q=0.5',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Fetch-Dest': 'image',
+        'Sec-Fetch-Mode': 'no-cors',
+        'Sec-Fetch-Site': 'cross-site',
+    }
+    
+    # 特定站点规则 - 常见的有防盗链机制的网站
+    # 格式: 'domain': {'referer': 'referer_url', 'origin': 'origin_url', 'extra_headers': {}}
+    site_rules = {
+        # 像素画/插画网站
+        'pixiv.net': {
+            'referer': 'https://www.pixiv.net/',
+            'origin': 'https://www.pixiv.net',
+            'use_id_in_referer': True,
+            'id_pattern': r'/(\d+)',  # 可以是任何正则表达式
+            'id_template': 'https://www.pixiv.net/artworks/{}'
+        },
+        'pximg.net': {
+            'referer': 'https://www.pixiv.net/',
+            'origin': 'https://www.pixiv.net',
+            'use_id_in_referer': True,
+            'id_pattern': r'/(\d+)',
+            'id_template': 'https://www.pixiv.net/artworks/{}'
+        },
+        
+        # Pinterest
+        'pinimg.com': {
+            'referer': 'https://www.pinterest.com/',
+            'origin': 'https://www.pinterest.com'
+        },
+        
+        # Twitter/X图片
+        'twimg.com': {
+            'referer': 'https://twitter.com/',
+            'origin': 'https://twitter.com'
+        },
+        
+        # Instagram
+        'cdninstagram.com': {
+            'referer': 'https://www.instagram.com/',
+            'origin': 'https://www.instagram.com'
+        },
+        
+        # 微博
+        'sinaimg.cn': {
+            'referer': 'https://weibo.com/',
+            'origin': 'https://weibo.com'
+        },
+        
+        # 知乎
+        'zhimg.com': {
+            'referer': 'https://www.zhihu.com/',
+            'origin': 'https://www.zhihu.com'
+        }
+    }
+    
+    # 使用智能Referer策略
+    if use_smart_referer:
+        # 默认使用链接自身的域名作为referer
+        smart_referer = f"{scheme}://{domain}/"
+        
+        # 对于CDN或媒体子域，尝试使用主域作为referer
+        if domain.startswith(('img.', 'image.', 'media.', 'assets.', 'static.', 'cdn.')):
+            smart_referer = f"{scheme}://{base_domain}/"
+        
+        headers['Referer'] = smart_referer
+    
+    # 应用特定站点规则
+    for site_domain, rules in site_rules.items():
+        if site_domain in domain:
+            # 基本referer和origin
+            headers['Referer'] = rules.get('referer', smart_referer)
+            if 'origin' in rules:
+                headers['Origin'] = rules['origin']
+                headers['Sec-Fetch-Site'] = 'same-site'
+            
+            # 如果需要使用ID进行referer处理
+            if rules.get('use_id_in_referer', False) and 'id_pattern' in rules:
+                id_match = re.search(rules['id_pattern'], path)
+                if id_match and 'id_template' in rules:
+                    content_id = id_match.group(1)
+                    headers['Referer'] = rules['id_template'].format(content_id)
+            
+            # 添加额外的头部
+            if 'extra_headers' in rules:
+                headers.update(rules['extra_headers'])
+            
+            break
+    
+    return headers, domain, base_domain
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5500) 
