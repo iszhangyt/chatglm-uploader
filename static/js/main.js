@@ -49,6 +49,9 @@ let totalPages = 1;
 let itemsPerPage = 6; // 每页显示6条记录
 let allHistoryItems = []; // 存储所有历史记录
 
+// 图片查看器实例
+let imageViewer = null;
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
     // 检查验证状态
@@ -516,7 +519,9 @@ function renderHistoryList(history) {
         const historyItem = document.createElement('div');
         historyItem.className = 'history-item';
         historyItem.innerHTML = `
-            <img class="history-item-img" src="${item.file_url}" alt="${item.file_name}">
+            <div class="history-item-img-container">
+                <img class="history-item-img" src="${item.file_url}" alt="${item.file_name}" data-original="${item.file_url}">
+            </div>
             <div class="history-item-info">
                 <div class="history-item-name" title="${item.file_name}">${item.file_name}</div>
                 <div class="history-item-time">${item.upload_time}</div>
@@ -549,6 +554,72 @@ function renderHistoryList(history) {
         });
         
         historyList.appendChild(historyItem);
+    });
+    
+    // 初始化图片查看器
+    initImageViewer();
+}
+
+// 初始化图片查看器
+function initImageViewer() {
+    // 如果已存在查看器实例，先销毁
+    if (imageViewer) {
+        imageViewer.destroy();
+    }
+    
+    // 获取所有历史图片
+    const historyImages = document.querySelectorAll('.history-item-img');
+    
+    // 为每个图片添加点击事件
+    historyImages.forEach(img => {
+        img.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // 获取完整大图URL
+            const originalUrl = this.getAttribute('data-original');
+            
+            // 创建临时查看器实例
+            const tempViewer = new Viewer(this, {
+                inline: false,
+                navbar: false,
+                title: false,
+                toolbar: {
+                    zoomIn: true,
+                    zoomOut: true,
+                    oneToOne: true,
+                    reset: true,
+                    prev: false,
+                    next: false,
+                    rotateLeft: true,
+                    rotateRight: true,
+                    flipHorizontal: true,
+                    flipVertical: true,
+                },
+                url: 'data-original',
+                keyboard: true,
+                backdrop: true,
+                loop: false,
+                tooltip: true,
+                movable: true,
+                zoomable: true,
+                zoomRatio: 0.4, // 增加缩放比例，使放大缩小更快速
+                minZoomRatio: 0.05,
+                maxZoomRatio: 10, // 减小最大缩放比例，提高性能
+                rotatable: true,
+                scalable: true,
+                toggleOnDblclick: true,
+                transition: false, // 禁用过渡动画，提高响应速度
+                loading: false, // 禁用默认加载指示器
+                ready() {
+                    // 查看器准备就绪后立即执行，提高响应速度
+                },
+                viewed() {
+                    // 查看器完全加载后的回调
+                }
+            });
+            tempViewer.show();
+        });
     });
 }
 

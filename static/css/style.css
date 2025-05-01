@@ -229,11 +229,24 @@ h2 {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
-.history-item-img {
+.history-item-img-container {
+    position: relative;
     width: 100%;
     height: 120px;
+    overflow: hidden;
+    cursor: zoom-in;
+}
+
+.history-item-img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
     display: block;
+    transition: transform 0.3s ease;
+}
+
+.history-item-img-container:hover .history-item-img {
+    transform: scale(1.05);
 }
 
 .history-item-info {
@@ -392,6 +405,10 @@ h2 {
         padding: 5px 8px;
         font-size: 11px;
         min-width: 50px;
+    }
+    
+    .history-item-img-container {
+        height: 100px;
     }
 }
 
@@ -574,4 +591,54 @@ h2 {
 
 .confirm-dialog-buttons .btn {
     min-width: 80px;
+}
+
+/* Viewer.js自定义样式 */
+.viewer-container {
+    z-index: 10000;
+    background-color: rgba(0, 0, 0, 0.9);
+}
+
+.viewer-canvas {
+    background-color: transparent !important;
+}
+
+.viewer-footer {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.viewer-toolbar {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.viewer-button {
+    color: #fff;
+}
+
+/* 优化图片加载渲染 */
+.viewer-move {
+    will-change: transform;
+}
+
+.viewer-transition {
+    transition: none !important;
+}
+
+/* 图片容器预加载提示优化 */
+.history-item-img-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.05);
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.history-item-img-container:hover::before {
+    opacity: 1;
 } 
