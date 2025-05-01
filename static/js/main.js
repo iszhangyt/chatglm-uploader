@@ -311,9 +311,9 @@ function handleFiles(files) {
     }
     
     // 验证文件类型
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-        showToast('请选择图片文件（JPG, PNG, GIF, BMP, WEBP）');
+        showToast('请选择支持的图片格式：JPG, PNG, GIF, BMP, WEBP');
         return;
     }
     

@@ -13,6 +13,7 @@ import tempfile
 import mimetypes
 from urllib.parse import urlparse
 import re
+from PIL import Image, UnidentifiedImageError
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -158,7 +159,7 @@ def upload_image():
     
     # 检查文件类型
     if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
-        return jsonify({'status': 1, 'message': '不支持的文件类型'}), 400
+        return jsonify({'status': 1, 'message': '请选择支持的图片格式：JPG, PNG, GIF, BMP, WEBP'}), 400
     
     # 获取上传渠道
     channel = request.form.get('channel', 'chatglm')
@@ -169,15 +170,34 @@ def upload_image():
         temp_file_path = os.path.join(UPLOAD_HISTORY_DIR, temp_file_name)
         file.save(temp_file_path)
         
+        # 验证图片并获取正确的content_type和尺寸信息
+        img_info = validate_image(temp_file_path, file.filename)
+        if not img_info:
+            # 清理临时文件
+            try:
+                os.remove(temp_file_path)
+            except Exception as e:
+                print(f"删除临时文件失败: {str(e)}")
+            return jsonify({'status': 1, 'message': '无效的图片文件，请确保提供支持的图片格式：JPG, PNG, GIF, BMP, WEBP'}), 400
+        
+        # 创建包含验证后信息的文件对象
+        class ValidatedFile:
+            def __init__(self, original_file, img_info):
+                self.filename = original_file.filename
+                self.content_type = img_info['content_type']
+                self.width = img_info['width']
+                self.height = img_info['height']
+        
+        validated_file = ValidatedFile(file, img_info)
         result = None
         
         # 根据不同的渠道进行上传
         if channel == 'jd':
             # 上传到京东图床
-            result = upload_to_jd(temp_file_path, file)
+            result = upload_to_jd(temp_file_path, validated_file)
         else:
             # 默认上传到ChatGLM服务器
-            result = upload_to_chatglm(temp_file_path, file)
+            result = upload_to_chatglm(temp_file_path, validated_file)
         
         # 清理临时文件
         try:
@@ -194,8 +214,8 @@ def upload_image():
             'id': str(uuid.uuid4()),
             'file_name': file.filename,
             'file_url': result['file_url'],
-            'width': result.get('width', 0),
-            'height': result.get('height', 0),
+            'width': result.get('width', validated_file.width),
+            'height': result.get('height', validated_file.height),
             'channel': channel,
             'upload_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
@@ -409,6 +429,17 @@ def upload_from_url():
         except Exception as e:
             return jsonify({'status': 1, 'message': f'创建临时文件失败: {str(e)}'}), 400
         
+        # 验证图片并获取正确的content_type和尺寸信息
+        img_info = validate_image(temp_file_path, "从URL下载")
+        if not img_info:
+            # 清理临时文件
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.remove(temp_file_path)
+                except Exception as e:
+                    print(f"删除临时文件失败: {str(e)}")
+            return jsonify({'status': 1, 'message': '下载的文件不是支持的图片格式：JPG, PNG, GIF, BMP, WEBP'}), 400
+        
         # 处理文件名 - 控制长度
         try:
             # 从URL中提取文件名
@@ -425,30 +456,33 @@ def upload_from_url():
             if not base_name or len(base_name) < 3:
                 base_name = f"img_{uuid.uuid4().hex[:8]}"
                 
-            # 构建最终文件名
-            file_name = f"{base_name}{ext}"
+            # 使用验证后的扩展名构建最终文件名
+            file_name = f"{base_name}{img_info['extension']}"
         except Exception:
             # 如果文件名处理出错，使用安全的默认名称
-            file_name = f"image_{uuid.uuid4().hex[:8]}{ext}"
+            file_name = f"image_{uuid.uuid4().hex[:8]}{img_info['extension']}"
         
-        # 创建一个模拟的文件对象，避免修改现有上传函数
-        class MockFile:
-            def __init__(self, filename, content_type):
+        # 创建包含验证后信息的文件对象
+        class ValidatedFile:
+            def __init__(self, filename, img_info):
                 self.filename = filename
-                self.content_type = content_type
+                self.content_type = img_info['content_type']
+                self.width = img_info['width'] 
+                self.height = img_info['height']
         
-        mock_file = MockFile(file_name, content_type)
+        validated_file = ValidatedFile(file_name, img_info)
         
+        # 传递验证后的文件对象到上传函数
         result = None
         
         # 根据不同的渠道进行上传
         try:
             if channel == 'jd':
                 # 上传到京东图床
-                result = upload_to_jd(temp_file_path, mock_file)
+                result = upload_to_jd(temp_file_path, validated_file)
             else:
                 # 默认上传到ChatGLM服务器
-                result = upload_to_chatglm(temp_file_path, mock_file)
+                result = upload_to_chatglm(temp_file_path, validated_file)
                 
             if not result:
                 return jsonify({'status': 1, 'message': '图床服务器上传失败'}), 400
@@ -469,8 +503,8 @@ def upload_from_url():
                 'id': str(uuid.uuid4()),
                 'file_name': file_name,
                 'file_url': result['file_url'],
-                'width': result.get('width', 0),
-                'height': result.get('height', 0),
+                'width': result.get('width', validated_file.width),
+                'height': result.get('height', validated_file.height),
                 'channel': channel,
                 'upload_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
@@ -499,6 +533,63 @@ def upload_from_url():
                 pass
         
         return jsonify({'status': 1, 'message': f'处理失败: {str(e)}'}), 400
+
+def validate_image(file_path, original_filename=None):
+    """
+    验证文件是否为有效图片，并返回正确的content_type和图片信息
+    
+    参数:
+        file_path: 图片文件的路径
+        original_filename: 原始文件名，用于记录日志
+        
+    返回:
+        dict: 包含content_type, width, height等信息的字典，如果验证失败则返回None
+    """
+    try:
+        # 使用PIL打开图片以验证是否为有效图片
+        img = Image.open(file_path)
+        
+        # 获取图片格式和尺寸
+        img_format = img.format.lower() if img.format else None
+        width, height = img.size
+        
+        # 验证图片格式是否为支持的类型
+        supported_formats = {'jpeg': 'image/jpeg', 'jpg': 'image/jpeg', 'png': 'image/png', 
+                           'gif': 'image/gif', 'webp': 'image/webp', 'bmp': 'image/bmp'}
+        
+        if not img_format or img_format.lower() not in supported_formats:
+            print(f"不支持的图片格式: {img_format}, 文件: {original_filename}")
+            return None
+            
+        # 获取正确的content_type
+        content_type = supported_formats.get(img_format.lower(), 'image/jpeg')
+        
+        # 构建图片信息
+        img_info = {
+            'content_type': content_type,
+            'width': width,
+            'height': height,
+            'format': img_format.lower()
+        }
+        
+        # 确定扩展名
+        ext_map = {
+            'jpeg': '.jpg',
+            'jpg': '.jpg',
+            'png': '.png',
+            'gif': '.gif',
+            'webp': '.webp',
+            'bmp': '.bmp'
+        }
+        img_info['extension'] = ext_map.get(img_format.lower(), '.jpg')
+        
+        return img_info
+    except UnidentifiedImageError:
+        print(f"无法识别的图片: {original_filename}")
+        return None
+    except Exception as e:
+        print(f"验证图片时出错: {str(e)}, 文件: {original_filename}")
+        return None
 
 def upload_to_chatglm(temp_file_path, file):
     """上传到ChatGLM图床"""
@@ -536,10 +627,20 @@ def upload_to_chatglm(temp_file_path, file):
         print(f"ChatGLM上传失败: {result['message']}")
         return None
     
+    # 如果图床返回的尺寸为0，使用我们验证时获取的尺寸
+    width = result['result'].get('width', 0)
+    height = result['result'].get('height', 0)
+    
+    if width == 0 and hasattr(file, 'width'):
+        width = file.width
+    
+    if height == 0 and hasattr(file, 'height'):
+        height = file.height
+    
     return {
         'file_url': result['result']['file_url'],
-        'width': result['result']['width'],
-        'height': result['result']['height']
+        'width': width,
+        'height': height
     }
 
 def upload_to_jd(temp_file_path, file):
@@ -581,11 +682,20 @@ def upload_to_jd(temp_file_path, file):
         # 需要正确构建完整URL，使用新的前缀
         file_url = f"https://img20.360buyimg.com/openfeedback/{result['msg']}"
         
-        # 这里无法获取图片尺寸，设置为默认值
+        # 获取图片尺寸，京东不返回，使用我们验证时获取的
+        width = 0
+        height = 0
+        
+        if hasattr(file, 'width'):
+            width = file.width
+        
+        if hasattr(file, 'height'):
+            height = file.height
+        
         return {
             'file_url': file_url,
-            'width': 0,
-            'height': 0
+            'width': width,
+            'height': height
         }
     except Exception as e:
         print(f"解析京东上传响应失败: {str(e)}")
