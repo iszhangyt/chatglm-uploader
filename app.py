@@ -213,6 +213,16 @@ def upload_image():
             # 如果渠道不存在，使用默认渠道
             uploader = channel_manager.get_default_channel()
         
+        # 检查文件大小限制
+        size_ok, size_error = uploader.check_file_size(temp_file_path)
+        if not size_ok:
+            # 清理临时文件
+            try:
+                os.remove(temp_file_path)
+            except Exception as e:
+                logger.error(f"删除临时文件失败: {str(e)}")
+            return jsonify({'status': 1, 'message': size_error}), 400
+        
         result = uploader.upload(temp_file_path, validated_file)
         
         # 清理临时文件
@@ -489,8 +499,13 @@ def upload_from_url():
         try:
             uploader = channel_manager.get_channel(channel)
             if not uploader:
-                # 如果渠道不存在，使用默认的ChatGLM渠道
-                uploader = channel_manager.get_channel('chatglm')
+                # 如果渠道不存在，使用默认渠道
+                uploader = channel_manager.get_default_channel()
+            
+            # 检查文件大小限制
+            size_ok, size_error = uploader.check_file_size(temp_file_path)
+            if not size_ok:
+                return jsonify({'status': 1, 'message': size_error}), 400
             
             result = uploader.upload(temp_file_path, validated_file)
                 

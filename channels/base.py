@@ -11,8 +11,43 @@ logger = logging.getLogger('image_uploader')
 class BaseChannel(ABC):
     """上传渠道基类"""
     
+    # 默认最大文件大小限制（字节），None 表示无限制
+    MAX_FILE_SIZE = None
+    
     def __init__(self):
         self.name = self.__class__.__name__
+    
+    def get_max_file_size(self):
+        """
+        获取最大文件大小限制（字节）
+        
+        返回:
+            int or None - 最大文件大小（字节），None表示无限制
+        """
+        return self.MAX_FILE_SIZE
+    
+    def check_file_size(self, file_path):
+        """
+        检查文件大小是否超出限制
+        
+        参数:
+            file_path: str - 文件路径
+            
+        返回:
+            tuple - (是否通过, 错误信息或None)
+        """
+        import os
+        max_size = self.get_max_file_size()
+        if max_size is None:
+            return True, None
+        
+        file_size = os.path.getsize(file_path)
+        if file_size > max_size:
+            max_size_mb = max_size / (1024 * 1024)
+            file_size_mb = file_size / (1024 * 1024)
+            return False, f"文件大小 {file_size_mb:.2f}MB 超出限制 {max_size_mb:.0f}MB"
+        
+        return True, None
     
     @abstractmethod
     def upload(self, temp_file_path, file):

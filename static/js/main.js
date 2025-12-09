@@ -371,7 +371,17 @@ function handleFiles(files) {
             redirectToVerify();
             showToast('验证已过期，请重新验证');
         } else {
-            showToast(`上传失败: ${xhr.statusText}`);
+            // 尝试解析错误信息
+            try {
+                const errorResponse = JSON.parse(xhr.responseText);
+                if (errorResponse && errorResponse.message) {
+                    showToast(`上传失败: ${errorResponse.message}`);
+                } else {
+                    showToast(`上传失败: ${xhr.statusText || '未知错误'}`);
+                }
+            } catch (e) {
+                showToast(`上传失败: ${xhr.statusText || '未知错误'}`);
+            }
         }
         uploadProgress.hidden = true;
         

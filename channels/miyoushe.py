@@ -11,6 +11,9 @@ from .base import BaseChannel
 class MiyousheChannel(BaseChannel):
     """米游社图床上传渠道"""
     
+    # 最大文件大小限制：20MB
+    MAX_FILE_SIZE = 20 * 1024 * 1024
+    
     # API 端点
     GET_UPLOAD_PARAMS_URL = "https://bbs-api.miyoushe.com/apihub/wapi/getUploadParams"
     
