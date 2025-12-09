@@ -17,6 +17,7 @@ from PIL import Image, UnidentifiedImageError
 import random
 import logging
 from datetime import timedelta
+from channels import channel_manager
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -207,12 +208,12 @@ def upload_image():
         result = None
         
         # 根据不同的渠道进行上传
-        if channel == 'jd':
-            # 上传到京东图床
-            result = upload_to_jd(temp_file_path, validated_file)
-        else:
-            # 默认上传到ChatGLM服务器
-            result = upload_to_chatglm(temp_file_path, validated_file)
+        uploader = channel_manager.get_channel(channel)
+        if not uploader:
+            # 如果渠道不存在，使用默认的ChatGLM渠道
+            uploader = channel_manager.get_channel('chatglm')
+        
+        result = uploader.upload(temp_file_path, validated_file)
         
         # 清理临时文件
         try:
@@ -486,12 +487,12 @@ def upload_from_url():
         
         # 根据不同的渠道进行上传
         try:
-            if channel == 'jd':
-                # 上传到京东图床
-                result = upload_to_jd(temp_file_path, validated_file)
-            else:
-                # 默认上传到ChatGLM服务器
-                result = upload_to_chatglm(temp_file_path, validated_file)
+            uploader = channel_manager.get_channel(channel)
+            if not uploader:
+                # 如果渠道不存在，使用默认的ChatGLM渠道
+                uploader = channel_manager.get_channel('chatglm')
+            
+            result = uploader.upload(temp_file_path, validated_file)
                 
             if not result:
                 return jsonify({'status': 1, 'message': '图床服务器上传失败'}), 400
@@ -601,115 +602,6 @@ def validate_image(file_path, original_filename=None):
         logger.error(f"验证图片时出错: {str(e)}, 文件: {original_filename}")
         return None
 
-def upload_to_chatglm(temp_file_path, file):
-    """上传到ChatGLM图床"""
-    url = "https://chatglm.cn/chatglm/backend-api/assistant/file_upload"
-    
-    payload = {}
-    response = None
-    
-    try:
-        with open(temp_file_path, 'rb') as file_handle:
-            files = [
-                ('file', (file.filename, file_handle, file.content_type))
-            ]
-            headers = {
-                'Accept': 'application/json, text/plain, */*',
-                'Accept-Language': 'zh-CN,zh;q=0.9',
-                'App-Name': 'chatglm',
-                'Connection': 'keep-alive',
-                'DNT': '1',
-                'Origin': 'https://chatglm.cn',
-            }
-            
-            response = requests.request("POST", url, headers=headers, data=payload, files=files)
-    except Exception as e:
-        logger.error(f"ChatGLM上传请求失败: {str(e)}")
-        return None
-    
-    if response.status_code != 200:
-        logger.error(f"ChatGLM上传失败: {response.text}")
-        return None
-    
-    result = response.json()
-    
-    if result['status'] != 0:
-        logger.error(f"ChatGLM上传失败: {result['message']}")
-        return None
-    
-    # 如果图床返回的尺寸为0，使用我们验证时获取的尺寸
-    width = result['result'].get('width', 0)
-    height = result['result'].get('height', 0)
-    
-    if width == 0 and hasattr(file, 'width'):
-        width = file.width
-    
-    if height == 0 and hasattr(file, 'height'):
-        height = file.height
-    
-    return {
-        'file_url': result['result']['file_url'],
-        'width': width,
-        'height': height
-    }
-
-def upload_to_jd(temp_file_path, file):
-    """上传到京东图床"""
-    url = "https://pic.jd.com/0/32ac1cd9ca1543e2a9cce60a4c9be94e"
-    
-    try:
-        with open(temp_file_path, 'rb') as file_handle:
-            files = {
-                'file': (file.filename, file_handle, file.content_type)
-            }
-            headers = {
-                'Accept': 'application/json, text/javascript, */*; q=0.01',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
-                'Origin': 'https://feedback.jd.com',
-                'Referer': 'https://feedback.jd.com/',
-                'Sec-Ch-Ua-Platform': 'Windows',
-                'Sec-Ch-Ua-Mobile': '?0'
-            }
-            
-            response = requests.post(url, headers=headers, files=files)
-    except Exception as e:
-        logger.error(f"京东上传请求失败: {str(e)}")
-        return None
-    
-    if response.status_code != 200:
-        logger.error(f"京东上传失败: {response.text}")
-        return None
-    
-    try:
-        result = response.json()
-        
-        if result['id'] != '1' or not result['msg']:
-            logger.error(f"京东上传失败: {result}")
-            return None
-        
-        # 构建完整URL
-        # 从响应结果可以看出，返回格式是 jfs/t1/276937/35/26005/100196/68075c62F71bbcbb5/62424d53b2551311.png
-        # 需要正确构建完整URL，使用新的前缀
-        file_url = f"https://img20.360buyimg.com/openfeedback/{result['msg']}"
-        
-        # 获取图片尺寸，京东不返回，使用我们验证时获取的
-        width = 0
-        height = 0
-        
-        if hasattr(file, 'width'):
-            width = file.width
-        
-        if hasattr(file, 'height'):
-            height = file.height
-        
-        return {
-            'file_url': file_url,
-            'width': width,
-            'height': height
-        }
-    except Exception as e:
-        logger.error(f"解析京东上传响应失败: {str(e)}")
-        return None
 
 @app.route('/history', methods=['GET'])
 def get_history():
