@@ -511,6 +511,7 @@ function renderHistoryList(history) {
     
     // 渠道名称映射
     const channelMap = {
+        'miyoushe': '米游社',
         'chatglm': 'ChatGLM',
         'jd': '京东'
     };

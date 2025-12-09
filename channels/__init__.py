@@ -5,10 +5,14 @@
 from .base import BaseChannel
 from .chatglm import ChatGLMChannel
 from .jd import JDChannel
+from .miyoushe import MiyousheChannel
 
 
 class ChannelManager:
     """上传渠道管理器"""
+    
+    # 默认渠道名称
+    DEFAULT_CHANNEL = "miyoushe"
     
     def __init__(self):
         self.channels = {}
@@ -16,6 +20,7 @@ class ChannelManager:
     
     def _register_default_channels(self):
         """注册默认的上传渠道"""
+        self.register(MiyousheChannel())
         self.register(ChatGLMChannel())
         self.register(JDChannel())
     
@@ -64,6 +69,24 @@ class ChannelManager:
             bool - 存在返回True，否则返回False
         """
         return channel_name in self.channels
+    
+    def get_default_channel(self):
+        """
+        获取默认渠道
+        
+        返回:
+            BaseChannel - 默认渠道实例
+        """
+        return self.channels.get(self.DEFAULT_CHANNEL)
+    
+    def get_default_channel_name(self):
+        """
+        获取默认渠道名称
+        
+        返回:
+            str - 默认渠道名称
+        """
+        return self.DEFAULT_CHANNEL
 
 
 # 创建全局渠道管理器实例

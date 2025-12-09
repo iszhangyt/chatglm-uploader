@@ -178,7 +178,7 @@ def upload_image():
         return jsonify({'status': 1, 'message': '请选择支持的图片格式：JPG, PNG, GIF, BMP, WEBP'}), 400
     
     # 获取上传渠道
-    channel = request.form.get('channel', 'chatglm')
+    channel = request.form.get('channel', channel_manager.get_default_channel_name())
     
     try:
         # 保存临时文件
@@ -210,8 +210,8 @@ def upload_image():
         # 根据不同的渠道进行上传
         uploader = channel_manager.get_channel(channel)
         if not uploader:
-            # 如果渠道不存在，使用默认的ChatGLM渠道
-            uploader = channel_manager.get_channel('chatglm')
+            # 如果渠道不存在，使用默认渠道
+            uploader = channel_manager.get_default_channel()
         
         result = uploader.upload(temp_file_path, validated_file)
         
@@ -276,7 +276,7 @@ def upload_from_url():
     if not url.startswith(('http://', 'https://')):
         return jsonify({'status': 1, 'message': '无效的URL格式，必须以http://或https://开头'}), 400
     
-    channel = data.get('channel', 'chatglm')  # 默认使用ChatGLM渠道
+    channel = data.get('channel', channel_manager.get_default_channel_name())  # 默认使用米游社渠道
     
     try:
         # 配置代理（如果需要）
