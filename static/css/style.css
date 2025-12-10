@@ -15,38 +15,44 @@ body {
 .container {
     max-width: 800px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 15px 20px;
 }
 
 header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
 header h1 {
     color: #2c3e50;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
+    font-size: 26px;
+}
+
+header p {
+    font-size: 14px;
+    color: #666;
 }
 
 h2 {
     color: #2c3e50;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
 }
 
 /* 上传区域样式 */
 .upload-section {
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
 .upload-area {
     background-color: #ffffff;
     border: 2px dashed #e0e0e0;
     border-radius: 10px;
-    padding: 30px 20px;
+    padding: 25px 20px;
     text-align: center;
     transition: all 0.3s ease;
     cursor: pointer;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
 }
 
@@ -138,62 +144,87 @@ h2 {
 .result-section {
     background-color: #fff;
     border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 30px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.result-section h2 {
+    text-align: center;
+    margin-bottom: 12px;
+    font-size: 18px;
 }
 
 .result-image {
     text-align: center;
-    margin-bottom: 20px;
-    max-height: 300px;
+    margin-bottom: 12px;
+    height: 200px;
     overflow: hidden;
-    border-radius: 4px;
+    border-radius: 6px;
+    background-color: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #eee;
 }
 
 .result-image img {
     max-width: 100%;
-    max-height: 300px;
+    max-height: 100%;
     object-fit: contain;
 }
 
 .result-info {
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 .url-group {
     display: flex;
-    margin-bottom: 15px;
+    margin-bottom: 8px;
     align-items: center;
-    flex-wrap: wrap;
 }
 
 .url-group label {
-    min-width: 100px;
-    margin-right: 10px;
+    min-width: 85px;
+    width: 85px;
+    margin-right: 8px;
     color: #555;
     font-weight: 500;
+    font-size: 13px;
+    flex-shrink: 0;
 }
 
 .url-group input {
     flex: 1;
-    padding: 8px 12px;
+    padding: 6px 10px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 14px;
-    margin-right: 10px;
+    font-size: 13px;
+    margin-right: 8px;
     background-color: #f5f5f5;
+    min-width: 0;
+}
+
+.url-group .btn {
+    padding: 6px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .image-info {
     display: flex;
     justify-content: space-between;
     color: #666;
-    font-size: 14px;
+    font-size: 12px;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+    margin-top: 4px;
 }
 
 .action-buttons {
     text-align: center;
+    margin-top: 12px;
 }
 
 /* 历史记录区域 */
@@ -387,58 +418,250 @@ h2 {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+    .container {
+        padding: 12px;
+    }
+    
+    header {
+        margin-bottom: 15px;
+    }
+    
+    header h1 {
+        font-size: 20px;
+    }
+    
+    header p {
+        font-size: 12px;
+    }
+    
+    .result-section {
+        padding: 12px;
+    }
+    
+    .result-section h2 {
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
+    
+    .result-image {
+        height: 150px;
+        margin-bottom: 10px;
+    }
+    
+    .result-info {
+        margin-bottom: 8px;
+    }
+    
+    /* 移动端链接组 - 保持水平布局但更紧凑 */
     .url-group {
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        margin-bottom: 6px;
+        gap: 6px;
     }
     
     .url-group label {
-        margin-bottom: 5px;
-        min-width: auto;
-    }
-    
-    .url-group input {
-        width: 100%;
-        margin-bottom: 10px;
+        min-width: 70px;
+        width: 70px;
+        font-size: 12px;
         margin-right: 0;
     }
     
-    .url-group button {
-        align-self: flex-end;
+    .url-group input {
+        flex: 1;
+        min-width: 0;
+        padding: 5px 8px;
+        font-size: 12px;
+        margin-right: 0;
+    }
+    
+    .url-group .btn {
+        padding: 5px 8px;
+        font-size: 11px;
+        flex-shrink: 0;
     }
     
     .image-info {
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 11px;
+        padding-top: 6px;
     }
     
     .image-info span {
-        margin-bottom: 5px;
+        margin-bottom: 0;
+    }
+    
+    .action-buttons {
+        margin-top: 10px;
+    }
+    
+    .action-buttons .btn {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+    
+    /* 历史记录列表 - 两列显示 */
+    .history-list {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .history-item-img-container {
+        height: 90px;
+    }
+    
+    .history-item-info {
+        padding: 6px 8px;
+        font-size: 11px;
+    }
+    
+    .history-item-name {
+        font-size: 11px;
+        margin-bottom: 3px;
+    }
+    
+    .history-item-time {
+        font-size: 10px;
+    }
+    
+    .history-item-channel {
+        font-size: 10px;
     }
     
     .history-item-actions {
         flex-direction: row;
-        padding: 6px 8px;
+        padding: 5px 4px;
+        gap: 2px;
     }
     
     .history-item-actions .btn {
-        padding: 5px 8px;
-        font-size: 11px;
-        min-width: 50px;
+        padding: 3px 6px;
+        font-size: 10px;
+        min-width: auto;
     }
     
-    .history-item-img-container {
-        height: 100px;
+    /* 分页区域移动端优化 */
+    .pagination {
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        padding: 10px 0;
+    }
+    
+    .pagination button {
+        padding: 5px 10px;
+        min-width: 60px;
+        font-size: 12px;
+    }
+    
+    #page-info {
+        font-size: 12px;
+        order: -1;
+        width: 100%;
+        text-align: center;
+        margin-bottom: 5px;
+    }
+    
+    .page-jump {
+        gap: 4px;
+    }
+    
+    .page-jump-input {
+        width: 40px;
+        height: 28px;
+        font-size: 12px;
+        padding: 2px 4px;
+    }
+    
+    #page-jump-btn {
+        padding: 5px 8px;
+        font-size: 12px;
+    }
+    
+    /* 历史页面操作按钮 */
+    .history-actions {
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+    
+    .history-actions .btn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    
+    .history-section {
+        padding: 12px;
+    }
+    
+    /* 上传区域移动端优化 */
+    .upload-area {
+        padding: 20px 15px;
+    }
+    
+    .upload-icon svg {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .file-label span {
+        font-size: 13px;
+    }
+    
+    .upload-tips {
+        font-size: 11px;
+    }
+    
+    .channel-selector {
+        margin-top: 12px;
+    }
+    
+    .channel-selector label {
+        font-size: 13px;
+    }
+    
+    .channel-selector select {
+        font-size: 13px;
+        padding: 6px 25px 6px 10px;
+    }
+    
+    .url-upload-container {
+        padding: 10px 12px;
+    }
+    
+    .url-upload {
+        gap: 8px;
+    }
+    
+    .url-input {
+        font-size: 13px;
+        padding: 6px 10px;
+    }
+    
+    .url-upload-btn {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+    
+    .history-link-section {
+        margin-top: 12px;
+    }
+    
+    .history-link-btn {
+        padding: 10px 18px;
+        font-size: 13px;
     }
 }
 
 /* 上传渠道选择器 */
 .channel-selector {
-    margin-top: 20px;
+    margin-top: 15px;
     text-align: center;
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 5px 0;
+    padding: 3px 0;
 }
 
 .channel-selector label {
@@ -482,8 +705,8 @@ h2 {
 .url-upload-container {
     background-color: #ffffff;
     border-radius: 10px;
-    padding: 15px 20px;
-    margin: 15px 0;
+    padding: 12px 15px;
+    margin: 12px 0;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
 }
 
@@ -665,7 +888,7 @@ h2 {
 /* ==================== 历史页面入口链接 ==================== */
 .history-link-section {
     text-align: center;
-    margin-top: 20px;
+    margin-top: 15px;
 }
 
 .history-link-btn {
