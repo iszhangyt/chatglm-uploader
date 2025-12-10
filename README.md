@@ -1,14 +1,16 @@
-# ChatGLM图床
+# FusionPic
 
-一个基于ChatGLM文件上传API的简单图床应用，支持京东图床。
+多渠道聚合图床服务，支持米游社、ChatGLM、京东等多个上传渠道。
 
 ## 功能
-- 支持ChatGLM和京东双渠道上传图片
+- 支持多渠道上传图片（米游社、ChatGLM、京东）
 - 获取图片URL并显示
-- 一键复制图片链接
+- 一键复制图片链接、HTML代码、Markdown格式
 - 查看和管理上传历史
 - 图片渠道选择和记忆功能
 - 用户验证功能
+- 支持URL链接上传
+- 支持拖拽和粘贴上传
 
 ## 使用方法
 
@@ -38,8 +40,8 @@
 #### 快速启动
 1. 克隆代码库到本地
 ```bash
-git clone https://github.com/iszhangyt/chatglm-uploader.git
-cd chatglm-uploader
+git clone https://github.com/iszhangyt/fusionpic.git
+cd fusionpic
 ```
 
 2. 使用Docker Compose构建并启动服务
@@ -95,6 +97,14 @@ chmod -R 777 ./data
 docker compose logs
 ```
 
+## 支持的上传渠道
+
+| 渠道 | 标识 | 说明 |
+|------|------|------|
+| 米游社 | miyoushe | 默认渠道，稳定可靠 |
+| ChatGLM | chatglm | ChatGLM 图床 |
+| 京东 | jd | 京东反馈系统图床 |
+
 ## 技术栈
 - 后端：Flask (Python)
 - 前端：HTML, CSS, JavaScript
@@ -103,4 +113,7 @@ docker compose logs
 ## 数据存储
 所有上传历史和配置信息都存储在 `data` 目录中，包括：
 - `history.json`：上传历史记录
-- `verification.json`：验证配置信息 
+- `verification.json`：验证配置信息
+
+## 扩展渠道
+如需添加新的上传渠道，请参考 `channels/README.md` 中的说明。
