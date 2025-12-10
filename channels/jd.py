@@ -41,7 +41,7 @@ class JDChannel(BaseChannel):
                     'Sec-Ch-Ua-Mobile': '?0'
                 }
                 
-                response = requests.post(self.upload_url, headers=headers, files=files)
+                response = requests.post(self.upload_url, headers=headers, files=files, timeout=60)
         except Exception as e:
             self.log_error(f"上传请求失败: {str(e)}")
             return None

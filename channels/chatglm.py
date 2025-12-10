@@ -44,7 +44,7 @@ class ChatGLMChannel(BaseChannel):
                     'Origin': 'https://chatglm.cn',
                 }
                 
-                response = requests.request("POST", self.upload_url, headers=headers, data=payload, files=files)
+                response = requests.request("POST", self.upload_url, headers=headers, data=payload, files=files, timeout=60)
         except Exception as e:
             self.log_error(f"上传请求失败: {str(e)}")
             return None

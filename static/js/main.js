@@ -301,6 +301,19 @@ function handleFileSelect(e) {
     }
 }
 
+// 渠道文件大小限制配置（单位：MB）
+const CHANNEL_SIZE_LIMITS = {
+    'miyoushe': 20,
+    'chatglm': null,  // null 表示无限制
+    'jd': null
+};
+
+// 获取当前渠道的文件大小限制
+function getChannelSizeLimit() {
+    const channel = channelSelect.value;
+    return CHANNEL_SIZE_LIMITS[channel] || null;
+}
+
 // 处理文件上传
 function handleFiles(files) {
     // 防止重复上传
@@ -316,8 +329,18 @@ function handleFiles(files) {
     // 验证文件类型
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-        showToast('请选择支持的图片格式：JPG, PNG, GIF, BMP, WEBP');
+        showToast('请选择支持的图片格式：JPG, PNG, GIF, BMP, WEBP', 'error');
         return;
+    }
+    
+    // 验证文件大小
+    const sizeLimit = getChannelSizeLimit();
+    if (sizeLimit) {
+        const fileSizeMB = file.size / (1024 * 1024);
+        if (fileSizeMB > sizeLimit) {
+            showToast(`文件大小 ${fileSizeMB.toFixed(2)}MB 超出限制 ${sizeLimit}MB`, 'error');
+            return;
+        }
     }
     
     // 标记上传状态
@@ -352,61 +375,106 @@ function handleFiles(files) {
     xhr.addEventListener('load', () => {
         // 重置上传状态
         isUploading = false;
+        uploadProgress.hidden = true;
+        fileInput.value = '';
+        
+        // 解析响应的通用函数
+        const parseErrorMessage = (responseText, status, statusText) => {
+            // 常见HTTP状态码的友好提示
+            const statusMessages = {
+                400: '请求参数错误',
+                401: '验证已过期',
+                403: '访问被拒绝',
+                404: '接口不存在',
+                413: '文件太大，超出服务器限制',
+                500: '服务器内部错误',
+                502: '网关错误',
+                503: '服务暂时不可用',
+                504: '网关超时'
+            };
+            
+            // 先尝试解析JSON响应
+            if (responseText) {
+                try {
+                    const json = JSON.parse(responseText);
+                    if (json && json.message) {
+                        return json.message;
+                    }
+                } catch (e) {
+                    // 不是JSON格式，继续处理
+                }
+            }
+            
+            // 使用状态码对应的友好提示
+            if (statusMessages[status]) {
+                return statusMessages[status];
+            }
+            
+            // 使用statusText
+            if (statusText && statusText !== 'OK') {
+                return statusText;
+            }
+            
+            return `HTTP错误 ${status}`;
+        };
         
         if (xhr.status === 200) {
             try {
                 const response = JSON.parse(xhr.responseText);
                 if (response.status === 0) {
                     handleUploadSuccess(response.result, file.name);
-                    loadHistory(); // 刷新历史记录
+                    loadHistory();
                 } else {
-                    showToast(`上传失败: ${response.message}`);
+                    showToast(`上传失败: ${response.message || '未知错误'}`, 'error');
                 }
             } catch (e) {
-                showToast('解析响应失败');
+                console.error('解析响应失败:', e, xhr.responseText);
+                showToast('上传失败: 服务器响应格式错误', 'error');
             }
         } else if (xhr.status === 401) {
-            // 验证已过期，重新验证
             localStorage.removeItem('verificationToken');
             redirectToVerify();
-            showToast('验证已过期，请重新验证');
+            showToast('验证已过期，请重新验证', 'error');
+        } else if (xhr.status === 413) {
+            // 文件太大 - nginx等反向代理拦截
+            showToast('上传失败: 文件太大，超出服务器限制（建议小于20MB）', 'error');
         } else {
-            // 尝试解析错误信息
-            try {
-                const errorResponse = JSON.parse(xhr.responseText);
-                if (errorResponse && errorResponse.message) {
-                    showToast(`上传失败: ${errorResponse.message}`);
-                } else {
-                    showToast(`上传失败: ${xhr.statusText || '未知错误'}`);
-                }
-            } catch (e) {
-                showToast(`上传失败: ${xhr.statusText || '未知错误'}`);
-            }
+            const errorMsg = parseErrorMessage(xhr.responseText, xhr.status, xhr.statusText);
+            showToast(`上传失败: ${errorMsg}`, 'error');
         }
-        uploadProgress.hidden = true;
-        
-        // 重置文件输入框，以便能够重新选择相同的文件
-        fileInput.value = '';
     });
     
-    // 上传错误事件
+    // 上传错误事件（网络错误等）
     xhr.addEventListener('error', () => {
         isUploading = false;
-        showToast('上传失败，请检查网络连接');
         uploadProgress.hidden = true;
         fileInput.value = '';
+        console.error('上传网络错误');
+        showToast('上传失败: 网络连接错误，请检查网络', 'error');
+    });
+    
+    // 上传超时事件
+    xhr.addEventListener('timeout', () => {
+        isUploading = false;
+        uploadProgress.hidden = true;
+        fileInput.value = '';
+        console.error('上传超时');
+        showToast('上传失败: 请求超时，请重试', 'error');
     });
     
     // 上传中断事件
     xhr.addEventListener('abort', () => {
         isUploading = false;
-        showToast('上传已取消');
         uploadProgress.hidden = true;
         fileInput.value = '';
+        showToast('上传已取消', 'warning');
     });
     
     // 发送请求
     xhr.open('POST', '/upload');
+    
+    // 设置超时时间（60秒）
+    xhr.timeout = 60000;
     
     // 添加验证令牌
     const token = localStorage.getItem('verificationToken');
@@ -499,12 +567,12 @@ function loadHistory() {
             // 更新分页控制
             updatePaginationControls();
         } else {
-            showToast(`获取历史记录失败: ${data.message}`);
+            showToast(`获取历史记录失败: ${data.message}`, 'error');
         }
     })
     .catch(error => {
         if (error.message !== '验证已过期') {
-            showToast('获取历史记录失败');
+            showToast('获取历史记录失败', 'error');
             console.error('Error loading history:', error);
         }
     });
@@ -691,14 +759,14 @@ function deleteHistoryItem(id) {
             if (data.status === 0) {
                 // 刷新历史记录，但尝试保持在当前页
                 loadHistory(); // 这将重新计算页数并保持当前页在有效范围内
-                showToast('删除成功');
+                showToast('删除成功', 'success');
             } else {
-                showToast(`删除失败: ${data.message}`);
+                showToast(`删除失败: ${data.message}`, 'error');
             }
         })
         .catch(error => {
             if (error.message !== '验证已过期') {
-                showToast('删除失败');
+                showToast('删除失败', 'error');
                 console.error('Error deleting history item:', error);
             }
         });
@@ -731,14 +799,14 @@ function clearHistory() {
                 // 清空历史后，重置为第一页
                 currentPage = 1;
                 loadHistory();
-                showToast('历史记录已清空');
+                showToast('历史记录已清空', 'success');
             } else {
-                showToast(`清空失败: ${data.message}`);
+                showToast(`清空失败: ${data.message}`, 'error');
             }
         })
         .catch(error => {
             if (error.message !== '验证已过期') {
-                showToast('清空失败');
+                showToast('清空失败', 'error');
                 console.error('Error clearing history:', error);
             }
         });
@@ -762,16 +830,16 @@ function copyToClipboard(text, successMessage) {
         // 尝试使用document.execCommand API (兼容性更好)
         success = document.execCommand('copy');
         if (success) {
-            showToast(successMessage || '复制成功');
+            showToast(successMessage || '复制成功', 'success');
         } else {
         //     如果execCommand失败，尝试使用Clipboard API
             navigator.clipboard.writeText(text)
-                .then(() => showToast(successMessage || '复制成功'))
-                .catch(() => showToast('复制失败'));
+                .then(() => showToast(successMessage || '复制成功', 'success'))
+                .catch(() => showToast('复制失败', 'error'));
         }
     } catch (err) {
         console.error('复制失败:', err);
-        showToast('复制失败');
+        showToast('复制失败', 'error');
     }
     
     // 移除临时元素
@@ -785,9 +853,20 @@ function copyText(input, successMessage) {
 }
 
 // 显示提示消息
-function showToast(message) {
+function showToast(message, type = 'info') {
     toast.textContent = message;
     toast.hidden = false;
+    
+    // 移除之前的类型样式
+    toast.classList.remove('toast-error', 'toast-warning', 'toast-success', 'toast-info');
+    
+    // 添加新的类型样式
+    if (type) {
+        toast.classList.add(`toast-${type}`);
+    }
+    
+    // 根据类型设置显示时间
+    const duration = type === 'error' ? 4000 : (type === 'warning' ? 3000 : 2000);
     
     setTimeout(() => {
         toast.style.opacity = '0';
@@ -795,7 +874,7 @@ function showToast(message) {
             toast.hidden = true;
             toast.style.opacity = '1';
         }, 300);
-    }, 2000);
+    }, duration);
 }
 
 // 保存用户选择的渠道到localStorage
@@ -820,7 +899,7 @@ function handleUrlUpload() {
     
     const url = imageUrlInput.value.trim();
     if (!url) {
-        showToast('请输入图片链接');
+        showToast('请输入图片链接', 'warning');
         return;
     }
     
@@ -851,6 +930,41 @@ function handleUrlUpload() {
     xhr.addEventListener('load', () => {
         // 重置上传状态
         isUploading = false;
+        uploadProgress.hidden = true;
+        
+        // 解析响应的通用函数
+        const parseErrorMessage = (responseText, status, statusText) => {
+            const statusMessages = {
+                400: '请求参数错误',
+                401: '验证已过期',
+                403: '访问被拒绝',
+                404: '接口不存在',
+                413: '文件太大，超出服务器限制',
+                500: '服务器内部错误',
+                502: '网关错误',
+                503: '服务暂时不可用',
+                504: '网关超时'
+            };
+            
+            if (responseText) {
+                try {
+                    const json = JSON.parse(responseText);
+                    if (json && json.message) {
+                        return json.message;
+                    }
+                } catch (e) {}
+            }
+            
+            if (statusMessages[status]) {
+                return statusMessages[status];
+            }
+            
+            if (statusText && statusText !== 'OK') {
+                return statusText;
+            }
+            
+            return `HTTP错误 ${status}`;
+        };
         
         if (xhr.status === 200) {
             try {
@@ -858,63 +972,55 @@ function handleUrlUpload() {
                 if (response.status === 0) {
                     const fileName = url.split('/').pop().split('?')[0] || 'image.jpg';
                     handleUploadSuccess(response.result, fileName);
-                    loadHistory(); // 刷新历史记录
-                    imageUrlInput.value = ''; // 清空输入框
+                    loadHistory();
+                    imageUrlInput.value = '';
                 } else {
-                    showToast(`上传失败: ${response.message}`);
+                    showToast(`上传失败: ${response.message || '未知错误'}`, 'error');
                 }
             } catch (e) {
-                showToast('解析响应失败');
+                console.error('解析响应失败:', e, xhr.responseText);
+                showToast('上传失败: 服务器响应格式错误', 'error');
             }
         } else if (xhr.status === 401) {
-            // 验证已过期，重新验证
             localStorage.removeItem('verificationToken');
             redirectToVerify();
-            showToast('验证已过期，请重新验证');
+            showToast('验证已过期，请重新验证', 'error');
+        } else if (xhr.status === 413) {
+            showToast('上传失败: 文件太大，超出服务器限制（建议小于20MB）', 'error');
         } else {
-            // 尝试解析错误信息
-            try {
-                const errorResponse = JSON.parse(xhr.responseText);
-                if (errorResponse && errorResponse.message) {
-                    showToast(`上传失败: ${errorResponse.message}`);
-                } else {
-                    showToast(`上传失败: ${xhr.statusText || '未知错误'}`);
-                }
-            } catch (e) {
-                // 如果无法解析JSON，显示更友好的错误信息
-                const statusMessages = {
-                    400: '请求参数错误',
-                    401: '未授权，请重新登录',
-                    403: '禁止访问此资源',
-                    404: '请求的资源不存在',
-                    500: '服务器内部错误',
-                    502: '网关错误',
-                    503: '服务暂时不可用',
-                    504: '网关超时'
-                };
-                const message = statusMessages[xhr.status] || `${xhr.status} ${xhr.statusText || '未知错误'}`;
-                showToast(`上传失败: ${message}`);
-            }
+            const errorMsg = parseErrorMessage(xhr.responseText, xhr.status, xhr.statusText);
+            showToast(`上传失败: ${errorMsg}`, 'error');
         }
-        uploadProgress.hidden = true;
     });
     
     // 上传错误事件
     xhr.addEventListener('error', () => {
         isUploading = false;
-        showToast('上传失败，请检查网络连接');
         uploadProgress.hidden = true;
+        console.error('URL上传网络错误');
+        showToast('上传失败: 网络连接错误，请检查网络', 'error');
+    });
+    
+    // 上传超时事件
+    xhr.addEventListener('timeout', () => {
+        isUploading = false;
+        uploadProgress.hidden = true;
+        console.error('URL上传超时');
+        showToast('上传失败: 请求超时，请重试', 'error');
     });
     
     // 上传中断事件
     xhr.addEventListener('abort', () => {
         isUploading = false;
-        showToast('上传已取消');
         uploadProgress.hidden = true;
+        showToast('上传已取消', 'warning');
     });
     
     // 发送请求
     xhr.open('POST', '/upload_from_url');
+    
+    // 设置超时时间（90秒，URL上传需要先下载再上传）
+    xhr.timeout = 90000;
     
     // 添加验证令牌
     const token = localStorage.getItem('verificationToken');
@@ -939,7 +1045,7 @@ function jumpToPage() {
         renderHistoryPage();
         updatePaginationControls();
     } else {
-        showToast('请输入有效的页码');
+        showToast('请输入有效的页码', 'warning');
     }
 }
 

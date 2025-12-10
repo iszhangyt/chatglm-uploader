@@ -359,11 +359,30 @@ h2 {
     transform: translateX(-50%);
     background-color: rgba(0, 0, 0, 0.8);
     color: white;
-    padding: 10px 20px;
-    border-radius: 4px;
+    padding: 12px 24px;
+    border-radius: 6px;
     z-index: 1000;
     font-size: 14px;
     transition: opacity 0.3s ease;
+    max-width: 90%;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.toast-error {
+    background-color: rgba(220, 53, 69, 0.95);
+}
+
+.toast-warning {
+    background-color: rgba(255, 152, 0, 0.95);
+}
+
+.toast-success {
+    background-color: rgba(40, 167, 69, 0.95);
+}
+
+.toast-info {
+    background-color: rgba(0, 0, 0, 0.85);
 }
 
 /* 响应式设计 */

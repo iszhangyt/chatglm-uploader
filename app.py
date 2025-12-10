@@ -164,27 +164,37 @@ def upload_image():
     # 验证token
     token = request.headers.get('X-Verification-Token')
     if not token or not verify_token(token):
+        logger.warning("上传请求验证失败: token无效或已过期")
         return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
     
     if 'file' not in request.files:
+        logger.warning("上传请求缺少文件")
         return jsonify({'status': 1, 'message': '没有文件'}), 400
     
     file = request.files['file']
     if file.filename == '':
+        logger.warning("上传请求文件名为空")
         return jsonify({'status': 1, 'message': '没有选择文件'}), 400
     
     # 检查文件类型
     if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
+        logger.warning(f"不支持的文件类型: {file.filename}")
         return jsonify({'status': 1, 'message': '请选择支持的图片格式：JPG, PNG, GIF, BMP, WEBP'}), 400
     
     # 获取上传渠道
     channel = request.form.get('channel', channel_manager.get_default_channel_name())
+    logger.info(f"开始上传: 文件={file.filename}, 渠道={channel}")
     
     try:
         # 保存临时文件
         temp_file_name = f"temp_{uuid.uuid4().hex}{os.path.splitext(file.filename)[1]}"
         temp_file_path = os.path.join(UPLOAD_HISTORY_DIR, temp_file_name)
         file.save(temp_file_path)
+        
+        # 获取文件大小
+        file_size = os.path.getsize(temp_file_path)
+        file_size_mb = file_size / (1024 * 1024)
+        logger.info(f"临时文件已保存: {temp_file_path}, 大小: {file_size_mb:.2f}MB")
         
         # 验证图片并获取正确的content_type和尺寸信息
         img_info = validate_image(temp_file_path, file.filename)
@@ -194,7 +204,10 @@ def upload_image():
                 os.remove(temp_file_path)
             except Exception as e:
                 logger.error(f"删除临时文件失败: {str(e)}")
+            logger.warning(f"图片验证失败: {file.filename}")
             return jsonify({'status': 1, 'message': '无效的图片文件，请确保提供支持的图片格式：JPG, PNG, GIF, BMP, WEBP'}), 400
+        
+        logger.info(f"图片验证通过: {file.filename}, 尺寸: {img_info['width']}x{img_info['height']}, 格式: {img_info['format']}")
         
         # 创建包含验证后信息的文件对象
         class ValidatedFile:
@@ -212,10 +225,12 @@ def upload_image():
         if not uploader:
             # 如果渠道不存在，使用默认渠道
             uploader = channel_manager.get_default_channel()
+            logger.warning(f"渠道 {channel} 不存在，使用默认渠道 {uploader.get_channel_name()}")
         
         # 检查文件大小限制
         size_ok, size_error = uploader.check_file_size(temp_file_path)
         if not size_ok:
+            logger.warning(f"文件大小超出限制: {file.filename}, {file_size_mb:.2f}MB, 渠道: {uploader.get_channel_name()}")
             # 清理临时文件
             try:
                 os.remove(temp_file_path)
@@ -223,6 +238,7 @@ def upload_image():
                 logger.error(f"删除临时文件失败: {str(e)}")
             return jsonify({'status': 1, 'message': size_error}), 400
         
+        logger.info(f"开始上传到渠道: {uploader.get_channel_name()}")
         result = uploader.upload(temp_file_path, validated_file)
         
         # 清理临时文件
@@ -232,7 +248,10 @@ def upload_image():
             logger.error(f"删除临时文件失败: {str(e)}")
         
         if not result:
-            return jsonify({'status': 1, 'message': '上传失败'}), 500
+            logger.error(f"上传失败: 文件={file.filename}, 渠道={uploader.get_channel_name()}, 原因=渠道返回空结果")
+            return jsonify({'status': 1, 'message': f'上传到{uploader.get_channel_name()}失败，请检查渠道配置或稍后重试'}), 500
+        
+        logger.info(f"上传成功: 文件={file.filename}, 渠道={uploader.get_channel_name()}, URL={result['file_url']}")
         
         # 保存上传历史
         history = get_upload_history()
@@ -254,6 +273,7 @@ def upload_image():
             'result': result
         })
     except Exception as e:
+        logger.error(f"上传异常: 文件={file.filename if 'file' in locals() else '未知'}, 错误={str(e)}", exc_info=True)
         # 确保临时文件被删除
         if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
             try:
@@ -271,22 +291,27 @@ def upload_from_url():
     # 验证token
     token = request.headers.get('X-Verification-Token')
     if not token or not verify_token(token):
+        logger.warning("URL上传请求验证失败: token无效或已过期")
         return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
     
     # 解析请求数据
     data = request.json
     if not data or 'url' not in data:
+        logger.warning("URL上传请求缺少URL参数")
         return jsonify({'status': 1, 'message': '无效的请求参数'}), 400
     
     url = data['url'].strip()
     if not url:
+        logger.warning("URL上传请求URL为空")
         return jsonify({'status': 1, 'message': '图片URL不能为空'}), 400
     
     # 简单验证URL格式
     if not url.startswith(('http://', 'https://')):
+        logger.warning(f"无效的URL格式: {url}")
         return jsonify({'status': 1, 'message': '无效的URL格式，必须以http://或https://开头'}), 400
     
-    channel = data.get('channel', channel_manager.get_default_channel_name())  # 默认使用米游社渠道
+    channel = data.get('channel', channel_manager.get_default_channel_name())
+    logger.info(f"开始URL上传: URL={url[:100]}{'...' if len(url) > 100 else ''}, 渠道={channel}")
     
     try:
         # 配置代理（如果需要）
@@ -492,6 +517,11 @@ def upload_from_url():
         
         validated_file = ValidatedFile(file_name, img_info)
         
+        # 获取文件大小
+        file_size = os.path.getsize(temp_file_path)
+        file_size_mb = file_size / (1024 * 1024)
+        logger.info(f"URL图片下载完成: 大小={file_size_mb:.2f}MB, 尺寸={img_info['width']}x{img_info['height']}")
+        
         # 传递验证后的文件对象到上传函数
         result = None
         
@@ -501,17 +531,22 @@ def upload_from_url():
             if not uploader:
                 # 如果渠道不存在，使用默认渠道
                 uploader = channel_manager.get_default_channel()
+                logger.warning(f"渠道 {channel} 不存在，使用默认渠道 {uploader.get_channel_name()}")
             
             # 检查文件大小限制
             size_ok, size_error = uploader.check_file_size(temp_file_path)
             if not size_ok:
+                logger.warning(f"URL上传文件大小超出限制: {file_size_mb:.2f}MB, 渠道={uploader.get_channel_name()}")
                 return jsonify({'status': 1, 'message': size_error}), 400
             
+            logger.info(f"开始上传到渠道: {uploader.get_channel_name()}")
             result = uploader.upload(temp_file_path, validated_file)
                 
             if not result:
-                return jsonify({'status': 1, 'message': '图床服务器上传失败'}), 400
+                logger.error(f"URL上传失败: 渠道={uploader.get_channel_name()}, 原因=渠道返回空结果")
+                return jsonify({'status': 1, 'message': f'上传到{uploader.get_channel_name()}失败，请检查渠道配置或稍后重试'}), 400
         except Exception as e:
+            logger.error(f"URL上传异常: 渠道={channel}, 错误={str(e)}", exc_info=True)
             return jsonify({'status': 1, 'message': f'上传图片时发生错误: {str(e)}'}), 400
         finally:
             # 确保无论如何都清理临时文件
@@ -520,6 +555,8 @@ def upload_from_url():
                     os.remove(temp_file_path)
                 except Exception as e:
                     logger.error(f"删除临时文件失败: {str(e)}")
+        
+        logger.info(f"URL上传成功: 渠道={uploader.get_channel_name()}, URL={result['file_url']}")
         
         # 保存上传历史
         try:
@@ -550,6 +587,7 @@ def upload_from_url():
         })
     
     except Exception as e:
+        logger.error(f"URL上传处理异常: URL={url[:100] if 'url' in locals() else '未知'}, 错误={str(e)}", exc_info=True)
         # 确保临时文件被删除
         if temp_file_path and os.path.exists(temp_file_path):
             try:
