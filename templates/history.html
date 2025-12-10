@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上传历史 - ChatGLM图床</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Viewer.js CSS -->
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/viewerjs/1.11.3/viewer.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>上传历史</h1>
+            <p>查看和管理您的上传记录</p>
+            <a href="/" class="back-home-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 12H5"></path>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                返回上传
+            </a>
+        </header>
+
+        <section class="history-section">
+            <div class="history-actions">
+                <button id="refresh-history-btn" class="btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    刷新
+                </button>
+                <button id="clear-history-btn" class="btn btn-danger">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    清空历史
+                </button>
+            </div>
+            
+            <!-- 加载状态 -->
+            <div class="history-loading" id="history-loading">
+                <div class="loading-skeleton">
+                    <div class="skeleton-item">
+                        <div class="skeleton-img"></div>
+                        <div class="skeleton-info">
+                            <div class="skeleton-line"></div>
+                            <div class="skeleton-line short"></div>
+                        </div>
+                        <div class="skeleton-actions">
+                            <div class="skeleton-btn"></div>
+                            <div class="skeleton-btn"></div>
+                            <div class="skeleton-btn"></div>
+                        </div>
+                    </div>
+                    <div class="skeleton-item">
+                        <div class="skeleton-img"></div>
+                        <div class="skeleton-info">
+                            <div class="skeleton-line"></div>
+                            <div class="skeleton-line short"></div>
+                        </div>
+                        <div class="skeleton-actions">
+                            <div class="skeleton-btn"></div>
+                            <div class="skeleton-btn"></div>
+                            <div class="skeleton-btn"></div>
+                        </div>
+                    </div>
+                    <div class="skeleton-item">
+                        <div class="skeleton-img"></div>
+                        <div class="skeleton-info">
+                            <div class="skeleton-line"></div>
+                            <div class="skeleton-line short"></div>
+                        </div>
+                        <div class="skeleton-actions">
+                            <div class="skeleton-btn"></div>
+                            <div class="skeleton-btn"></div>
+                            <div class="skeleton-btn"></div>
+                        </div>
+                    </div>
+                    <div class="skeleton-item">
+                        <div class="skeleton-img"></div>
+                        <div class="skeleton-info">
+                            <div class="skeleton-line"></div>
+                            <div class="skeleton-line short"></div>
+                        </div>
+                        <div class="skeleton-actions">
+                            <div class="skeleton-btn"></div>
+                            <div class="skeleton-btn"></div>
+                            <div class="skeleton-btn"></div>
+                        </div>
+                    </div>
+                    <div class="skeleton-item">
+                        <div class="skeleton-img"></div>
+                        <div class="skeleton-info">
+                            <div class="skeleton-line"></div>
+                            <div class="skeleton-line short"></div>
+                        </div>
+                        <div class="skeleton-actions">
+                            <div class="skeleton-btn"></div>
+                            <div class="skeleton-btn"></div>
+                            <div class="skeleton-btn"></div>
+                        </div>
+                    </div>
+                    <div class="skeleton-item">
+                        <div class="skeleton-img"></div>
+                        <div class="skeleton-info">
+                            <div class="skeleton-line"></div>
+                            <div class="skeleton-line short"></div>
+                        </div>
+                        <div class="skeleton-actions">
+                            <div class="skeleton-btn"></div>
+                            <div class="skeleton-btn"></div>
+                            <div class="skeleton-btn"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="loading-text">正在加载历史记录...</div>
+            </div>
+            
+            <!-- 加载失败状态 -->
+            <div class="history-error" id="history-error" hidden>
+                <div class="error-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                </div>
+                <p class="error-text">加载失败，请重试</p>
+                <button id="retry-btn" class="btn btn-primary">重新加载</button>
+            </div>
+            
+            <!-- 空状态 -->
+            <div class="history-empty" id="history-empty" hidden>
+                <div class="empty-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                </div>
+                <p class="empty-text">暂无上传记录</p>
+                <p class="empty-hint">上传图片后，历史记录将显示在这里</p>
+                <a href="/" class="btn btn-primary">去上传图片</a>
+            </div>
+            
+            <!-- 历史记录列表 -->
+            <div class="history-list" id="history-list" hidden></div>
+            
+            <!-- 分页控制 -->
+            <div class="pagination" id="pagination-controls" hidden>
+                <button id="prev-page-btn" class="btn">上一页</button>
+                <span id="page-info">第 <span id="current-page">1</span> 页，共 <span id="total-pages">1</span> 页</span>
+                <button id="next-page-btn" class="btn">下一页</button>
+                <div class="page-jump">
+                    <input type="number" id="page-jump-input" min="1" value="1" class="page-jump-input">
+                    <button id="page-jump-btn" class="btn">跳转</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- 提示框 -->
+    <div class="toast" id="toast" hidden></div>
+
+    <!-- 确认对话框 -->
+    <div class="confirm-dialog" id="confirm-dialog" style="display: none;">
+        <div class="confirm-dialog-content">
+            <div class="confirm-dialog-message" id="confirm-message"></div>
+            <div class="confirm-dialog-buttons">
+                <button id="confirm-cancel-btn" class="btn">取消</button>
+                <button id="confirm-ok-btn" class="btn btn-primary">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载脚本 -->
+    <script src="{{ url_for('static', filename='js/history.js') }}"></script>
+    <!-- Viewer.js库 -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/viewerjs/1.11.3/viewer.min.js"></script>
+</body>
+</html>

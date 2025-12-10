@@ -117,6 +117,10 @@ def index():
 def verify_page():
     return render_template('verify.html')
 
+@app.route('/history_page')
+def history_page():
+    return render_template('history.html')
+
 @app.route('/api/verify', methods=['POST'])
 def verify():
     data = request.json
