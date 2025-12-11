@@ -8,6 +8,17 @@ const clearHistoryBtn = document.getElementById('clear-history-btn');
 const retryBtn = document.getElementById('retry-btn');
 const toast = document.getElementById('toast');
 
+// 带超时的fetch请求
+function fetchWithTimeout(url, options = {}, timeout = 15000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    return fetch(url, {
+        ...options,
+        signal: controller.signal
+    }).finally(() => clearTimeout(timeoutId));
+}
+
 // 分页控制元素
 const prevPageBtn = document.getElementById('prev-page-btn');
 const nextPageBtn = document.getElementById('next-page-btn');
@@ -44,13 +55,13 @@ function checkVerification() {
     
     // 验证令牌存在，验证其有效性
     if (token) {
-        fetch('/api/check_verification', {
+        fetchWithTimeout('/api/check_verification', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ token: token })
-        })
+        }, 10000)  // 10秒超时
         .then(response => response.json())
         .then(data => {
             if (data.status === 0) {
@@ -63,7 +74,13 @@ function checkVerification() {
         })
         .catch(error => {
             console.error('验证检查失败:', error);
-            redirectToVerify();
+            if (error.name === 'AbortError') {
+                // 超时情况，显示错误让用户可以重试
+                showError();
+                showToast('验证请求超时，请点击重试', 'error');
+            } else {
+                redirectToVerify();
+            }
         });
     } else {
         // 没有验证令牌，跳转到验证页
@@ -170,11 +187,11 @@ function loadHistory() {
     // 显示加载状态
     showLoading();
     
-    fetch('/history', {
+    fetchWithTimeout('/history', {
         headers: {
             'X-Verification-Token': token
         }
-    })
+    }, 15000)  // 15秒超时
     .then(response => {
         if (response.status === 401) {
             // 验证已过期，重新验证
@@ -219,7 +236,11 @@ function loadHistory() {
     .catch(error => {
         if (error.message !== '验证已过期') {
             showError();
-            console.error('Error loading history:', error);
+            if (error.name === 'AbortError') {
+                showToast('加载历史记录超时，请点击重试', 'error');
+            } else {
+                console.error('Error loading history:', error);
+            }
         }
     });
 }

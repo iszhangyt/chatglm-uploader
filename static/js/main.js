@@ -29,6 +29,17 @@ let isUploading = false;
 // 鼠标是否在上传区域内
 let isMouseOverDropArea = false;
 
+// 带超时的fetch请求
+function fetchWithTimeout(url, options = {}, timeout = 15000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    return fetch(url, {
+        ...options,
+        signal: controller.signal
+    }).finally(() => clearTimeout(timeoutId));
+}
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
     // 检查验证状态
@@ -41,13 +52,13 @@ function checkVerification() {
     
     // 验证令牌存在，验证其有效性
     if (token) {
-        fetch('/api/check_verification', {
+        fetchWithTimeout('/api/check_verification', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ token: token })
-        })
+        }, 10000)  // 10秒超时
         .then(response => response.json())
         .then(data => {
             if (data.status === 0) {
@@ -60,7 +71,11 @@ function checkVerification() {
         })
         .catch(error => {
             console.error('验证检查失败:', error);
-            redirectToVerify();
+            if (error.name === 'AbortError') {
+                showToast('验证请求超时，请刷新页面重试', 'error');
+            } else {
+                redirectToVerify();
+            }
         });
     } else {
         // 没有验证令牌，跳转到验证页
