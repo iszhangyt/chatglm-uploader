@@ -18,8 +18,14 @@ import random
 import logging
 from datetime import timedelta
 from channels import channel_manager
+import threading
 
 app = Flask(__name__, static_folder='static')
+
+# 文件读写锁，防止并发读写导致数据损坏
+# 使用 RLock 允许同一线程重入（用于递归调用场景）
+history_file_lock = threading.RLock()
+verification_file_lock = threading.RLock()
 CORS(app)
 
 # 创建上传历史存储目录
@@ -48,51 +54,55 @@ if not os.path.exists(UPLOAD_HISTORY_FILE):
 
 # 创建或加载验证配置
 def init_verification_config():
-    if not os.path.exists(VERIFICATION_CONFIG_FILE):
-        # 创建默认验证码和盐值
-        default_code = "admin123"
-        default_salt = secrets.token_hex(16)
-        
-        # 计算哈希值
-        hash_obj = hashlib.sha256((default_code + default_salt).encode())
-        hashed_code = hash_obj.hexdigest()
-        
-        verification_config = {
-            "code_hash": hashed_code,
-            "salt": default_salt,
-            "valid_tokens": {}
-        }
-        
-        with open(VERIFICATION_CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump(verification_config, f, ensure_ascii=False, indent=2)
-        
-        return verification_config
-    else:
-        try:
-            with open(VERIFICATION_CONFIG_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            # 如果文件损坏，重新创建
-            os.remove(VERIFICATION_CONFIG_FILE)
-            return init_verification_config()
+    with verification_file_lock:
+        if not os.path.exists(VERIFICATION_CONFIG_FILE):
+            # 创建默认验证码和盐值
+            default_code = "admin123"
+            default_salt = secrets.token_hex(16)
+            
+            # 计算哈希值
+            hash_obj = hashlib.sha256((default_code + default_salt).encode())
+            hashed_code = hash_obj.hexdigest()
+            
+            verification_config = {
+                "code_hash": hashed_code,
+                "salt": default_salt,
+                "valid_tokens": {}
+            }
+            
+            with open(VERIFICATION_CONFIG_FILE, 'w', encoding='utf-8') as f:
+                json.dump(verification_config, f, ensure_ascii=False, indent=2)
+            
+            return verification_config
+        else:
+            try:
+                with open(VERIFICATION_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except:
+                # 如果文件损坏，重新创建
+                os.remove(VERIFICATION_CONFIG_FILE)
+                return init_verification_config()
 
 # 保存验证配置
 def save_verification_config(config):
-    with open(VERIFICATION_CONFIG_FILE, 'w', encoding='utf-8') as f:
-        json.dump(config, f, ensure_ascii=False, indent=2)
+    with verification_file_lock:
+        with open(VERIFICATION_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
 
 # 读取上传历史
 def get_upload_history():
-    try:
-        with open(UPLOAD_HISTORY_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except:
-        return []
+    with history_file_lock:
+        try:
+            with open(UPLOAD_HISTORY_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return []
 
 # 保存上传历史
 def save_upload_history(history):
-    with open(UPLOAD_HISTORY_FILE, 'w', encoding='utf-8') as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
+    with history_file_lock:
+        with open(UPLOAD_HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
 
 # 生成token
 def generate_token():
