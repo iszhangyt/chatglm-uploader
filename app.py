@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, url_for
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import os
 import json
@@ -8,7 +8,6 @@ import uuid
 import hashlib
 import time
 import secrets
-import io
 import tempfile
 import mimetypes
 from urllib.parse import urlparse
@@ -16,23 +15,20 @@ import re
 from PIL import Image, UnidentifiedImageError
 import random
 import logging
-from datetime import timedelta
 from channels import channel_manager
-import threading
+import sqlite3
+from contextlib import contextmanager
 
 app = Flask(__name__, static_folder='static')
-
-# 文件读写锁，防止并发读写导致数据损坏
-# 使用 RLock 允许同一线程重入（用于递归调用场景）
-history_file_lock = threading.RLock()
-verification_file_lock = threading.RLock()
 CORS(app)
 
-# 创建上传历史存储目录
-UPLOAD_HISTORY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
-UPLOAD_HISTORY_FILE = os.path.join(UPLOAD_HISTORY_DIR, 'history.json')
-VERIFICATION_CONFIG_FILE = os.path.join(UPLOAD_HISTORY_DIR, 'verification.json')
-LOG_FILE = os.path.join(UPLOAD_HISTORY_DIR, 'app.log')
+# 创建数据存储目录
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+DATABASE_FILE = os.path.join(DATA_DIR, 'app.db')  # SQLite数据库文件
+LOG_FILE = os.path.join(DATA_DIR, 'app.log')
+# 旧JSON文件路径（用于数据迁移）
+OLD_HISTORY_JSON = os.path.join(DATA_DIR, 'history.json')
+OLD_VERIFICATION_JSON = os.path.join(DATA_DIR, 'verification.json')
 
 # 配置日志
 logging.basicConfig(
@@ -45,75 +41,265 @@ logging.basicConfig(
 )
 logger = logging.getLogger('image_uploader')
 
-if not os.path.exists(UPLOAD_HISTORY_DIR):
-    os.makedirs(UPLOAD_HISTORY_DIR)
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
 
-if not os.path.exists(UPLOAD_HISTORY_FILE):
-    with open(UPLOAD_HISTORY_FILE, 'w', encoding='utf-8') as f:
-        json.dump([], f)
+# ==================== SQLite 数据库操作 ====================
 
-# 创建或加载验证配置
-def init_verification_config():
-    with verification_file_lock:
-        if not os.path.exists(VERIFICATION_CONFIG_FILE):
-            # 创建默认验证码和盐值
-            default_code = "admin123"
-            default_salt = secrets.token_hex(16)
-            
-            # 计算哈希值
-            hash_obj = hashlib.sha256((default_code + default_salt).encode())
-            hashed_code = hash_obj.hexdigest()
-            
-            verification_config = {
-                "code_hash": hashed_code,
-                "salt": default_salt,
-                "valid_tokens": {}
-            }
-            
-            with open(VERIFICATION_CONFIG_FILE, 'w', encoding='utf-8') as f:
-                json.dump(verification_config, f, ensure_ascii=False, indent=2)
-            
-            return verification_config
-        else:
+def init_database():
+    """初始化SQLite数据库，创建表和索引"""
+    conn = sqlite3.connect(DATABASE_FILE)
+    # 启用WAL模式，支持并发读取，提高性能
+    conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute('PRAGMA synchronous=NORMAL')  # 平衡性能和安全性
+    conn.execute('PRAGMA cache_size=10000')  # 增加缓存
+    
+    # 上传历史表
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS upload_history (
+            id TEXT PRIMARY KEY,
+            file_name TEXT NOT NULL,
+            file_url TEXT NOT NULL,
+            width INTEGER DEFAULT 0,
+            height INTEGER DEFAULT 0,
+            channel TEXT,
+            upload_time TEXT NOT NULL
+        )
+    ''')
+    # 创建按上传时间降序的索引，加速查询
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_upload_time ON upload_history(upload_time DESC)')
+    
+    # 验证配置表（存储验证码哈希和盐值）
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS verification_config (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            code_hash TEXT NOT NULL,
+            salt TEXT NOT NULL
+        )
+    ''')
+    
+    # 有效token表
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS valid_tokens (
+            token TEXT PRIMARY KEY,
+            created_at REAL NOT NULL,
+            expires_at REAL NOT NULL
+        )
+    ''')
+    # 创建过期时间索引，方便清理过期token
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_expires_at ON valid_tokens(expires_at)')
+    
+    conn.commit()
+    conn.close()
+    
+    # 迁移旧的JSON数据
+    migrate_from_json()
+    migrate_verification_from_json()
+
+def migrate_from_json():
+    """从旧的JSON文件迁移数据到SQLite"""
+    if not os.path.exists(OLD_HISTORY_JSON):
+        return
+    
+    try:
+        with open(OLD_HISTORY_JSON, 'r', encoding='utf-8') as f:
+            history = json.load(f)
+        
+        if not history:
+            # 空文件，直接备份
+            os.rename(OLD_HISTORY_JSON, OLD_HISTORY_JSON + '.bak')
+            return
+        
+        conn = sqlite3.connect(DATABASE_FILE)
+        migrated_count = 0
+        for item in history:
             try:
-                with open(VERIFICATION_CONFIG_FILE, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except:
-                # 如果文件损坏，重新创建
-                os.remove(VERIFICATION_CONFIG_FILE)
-                return init_verification_config()
+                conn.execute('''
+                    INSERT OR IGNORE INTO upload_history 
+                    (id, file_name, file_url, width, height, channel, upload_time)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    item['id'], 
+                    item['file_name'], 
+                    item['file_url'],
+                    item.get('width', 0), 
+                    item.get('height', 0), 
+                    item.get('channel', ''),
+                    item['upload_time']
+                ))
+                migrated_count += 1
+            except Exception as e:
+                logging.warning(f"迁移记录失败: {item.get('id', 'unknown')}, 错误: {str(e)}")
+        
+        conn.commit()
+        conn.close()
+        
+        # 备份旧文件
+        os.rename(OLD_HISTORY_JSON, OLD_HISTORY_JSON + '.bak')
+        logging.info(f"已将 {migrated_count} 条历史记录迁移到SQLite数据库")
+    except Exception as e:
+        logging.error(f"迁移历史记录失败: {str(e)}")
 
-# 保存验证配置
-def save_verification_config(config):
-    with verification_file_lock:
-        with open(VERIFICATION_CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
+def migrate_verification_from_json():
+    """从旧的JSON文件迁移验证配置到SQLite"""
+    if not os.path.exists(OLD_VERIFICATION_JSON):
+        return
+    
+    try:
+        with open(OLD_VERIFICATION_JSON, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        
+        conn = sqlite3.connect(DATABASE_FILE)
+        
+        # 检查是否已有配置
+        cursor = conn.execute('SELECT COUNT(*) FROM verification_config')
+        if cursor.fetchone()[0] == 0:
+            # 迁移验证码配置
+            conn.execute(
+                'INSERT INTO verification_config (id, code_hash, salt) VALUES (1, ?, ?)',
+                (config.get('code_hash', ''), config.get('salt', ''))
+            )
+        
+        # 迁移有效token
+        valid_tokens = config.get('valid_tokens', {})
+        for token, token_info in valid_tokens.items():
+            try:
+                conn.execute(
+                    'INSERT OR IGNORE INTO valid_tokens (token, created_at, expires_at) VALUES (?, ?, ?)',
+                    (token, token_info.get('created_at', 0), token_info.get('expires_at', 0))
+                )
+            except Exception as e:
+                logging.warning(f"迁移token失败: {token[:8]}..., 错误: {str(e)}")
+        
+        conn.commit()
+        conn.close()
+        
+        # 备份旧文件
+        os.rename(OLD_VERIFICATION_JSON, OLD_VERIFICATION_JSON + '.bak')
+        logging.info(f"已将验证配置迁移到SQLite数据库，包含 {len(valid_tokens)} 个token")
+    except Exception as e:
+        logging.error(f"迁移验证配置失败: {str(e)}")
 
-# 读取上传历史
+@contextmanager
+def get_db_connection():
+    """获取数据库连接的上下文管理器"""
+    conn = sqlite3.connect(DATABASE_FILE, timeout=10)
+    conn.row_factory = sqlite3.Row  # 返回字典形式的结果
+    try:
+        yield conn
+    finally:
+        conn.close()
+
 def get_upload_history():
-    with history_file_lock:
-        try:
-            with open(UPLOAD_HISTORY_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            return []
+    """获取所有上传历史"""
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            'SELECT id, file_name, file_url, width, height, channel, upload_time '
+            'FROM upload_history ORDER BY upload_time DESC'
+        )
+        return [dict(row) for row in cursor.fetchall()]
 
-# 保存上传历史
-def save_upload_history(history):
-    with history_file_lock:
-        with open(UPLOAD_HISTORY_FILE, 'w', encoding='utf-8') as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
+def add_upload_history(item):
+    """添加一条上传历史"""
+    with get_db_connection() as conn:
+        conn.execute('''
+            INSERT INTO upload_history 
+            (id, file_name, file_url, width, height, channel, upload_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            item['id'], 
+            item['file_name'], 
+            item['file_url'],
+            item.get('width', 0), 
+            item.get('height', 0), 
+            item.get('channel', ''),
+            item['upload_time']
+        ))
+        conn.commit()
 
-# 生成token
+def delete_history_by_id(item_id):
+    """删除一条上传历史，返回是否删除成功"""
+    with get_db_connection() as conn:
+        cursor = conn.execute('DELETE FROM upload_history WHERE id = ?', (item_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+def clear_all_history():
+    """清空所有上传历史"""
+    with get_db_connection() as conn:
+        conn.execute('DELETE FROM upload_history')
+        conn.commit()
+
+# 初始化数据库
+init_database()
+
+# ==================== 验证配置 ====================
+
+def get_verification_config():
+    """获取验证配置（验证码哈希和盐值）"""
+    with get_db_connection() as conn:
+        cursor = conn.execute('SELECT code_hash, salt FROM verification_config WHERE id = 1')
+        row = cursor.fetchone()
+        if row:
+            return {'code_hash': row['code_hash'], 'salt': row['salt']}
+        return None
+
+def init_verification_config():
+    """初始化验证配置（如果不存在则创建默认配置）"""
+    config = get_verification_config()
+    if config:
+        return config
+    
+    # 创建默认验证码和盐值
+    default_code = "admin123"
+    default_salt = secrets.token_hex(16)
+    
+    # 计算哈希值
+    hash_obj = hashlib.sha256((default_code + default_salt).encode())
+    hashed_code = hash_obj.hexdigest()
+    
+    with get_db_connection() as conn:
+        conn.execute(
+            'INSERT OR REPLACE INTO verification_config (id, code_hash, salt) VALUES (1, ?, ?)',
+            (hashed_code, default_salt)
+        )
+        conn.commit()
+    
+    return {'code_hash': hashed_code, 'salt': default_salt}
+
 def generate_token():
+    """生成新的验证token"""
     return secrets.token_hex(32)
 
-# 验证token是否有效
+def add_valid_token(token, created_at, expires_at):
+    """添加有效token到数据库"""
+    with get_db_connection() as conn:
+        conn.execute(
+            'INSERT OR REPLACE INTO valid_tokens (token, created_at, expires_at) VALUES (?, ?, ?)',
+            (token, created_at, expires_at)
+        )
+        conn.commit()
+
 def verify_token(token):
-    config = init_verification_config()
-    if token in config["valid_tokens"]:
-        # 检查token是否过期（这里可以设置过期时间，比如30天）
-        return True
+    """验证token是否有效"""
+    if not token:
+        return False
+    
+    current_time = time.time()
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            'SELECT expires_at FROM valid_tokens WHERE token = ?',
+            (token,)
+        )
+        row = cursor.fetchone()
+        if row:
+            # 检查是否过期
+            if row['expires_at'] > current_time:
+                return True
+            else:
+                # 已过期，删除该token
+                conn.execute('DELETE FROM valid_tokens WHERE token = ?', (token,))
+                conn.commit()
     return False
 
 # 初始化验证配置
@@ -138,7 +324,11 @@ def verify():
         return jsonify({'status': 1, 'message': '无效的请求'}), 400
     
     code = data['code']
-    config = init_verification_config()
+    config = get_verification_config()
+    
+    if not config:
+        # 配置不存在，初始化
+        config = init_verification_config()
     
     # 验证码验证
     hash_obj = hashlib.sha256((code + config["salt"]).encode())
@@ -150,13 +340,10 @@ def verify():
     # 生成新的token
     token = generate_token()
     
-    # 保存token
-    config["valid_tokens"][token] = {
-        "created_at": time.time(),
-        "expires_at": time.time() + 30 * 24 * 60 * 60  # 30天有效期
-    }
-    
-    save_verification_config(config)
+    # 保存token到数据库
+    current_time = time.time()
+    expires_at = current_time + 30 * 24 * 60 * 60  # 30天有效期
+    add_valid_token(token, current_time, expires_at)
     
     return jsonify({'status': 0, 'message': '验证成功', 'token': token})
 
@@ -202,7 +389,7 @@ def upload_image():
     try:
         # 保存临时文件
         temp_file_name = f"temp_{uuid.uuid4().hex}{os.path.splitext(file.filename)[1]}"
-        temp_file_path = os.path.join(UPLOAD_HISTORY_DIR, temp_file_name)
+        temp_file_path = os.path.join(DATA_DIR, temp_file_name)
         file.save(temp_file_path)
         
         # 获取文件大小
@@ -268,7 +455,6 @@ def upload_image():
         logger.info(f"上传成功: 文件={file.filename}, 渠道={uploader.get_channel_name()}, URL={result['file_url']}")
         
         # 保存上传历史
-        history = get_upload_history()
         history_item = {
             'id': str(uuid.uuid4()),
             'file_name': file.filename,
@@ -278,8 +464,7 @@ def upload_image():
             'channel': channel,
             'upload_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
-        history.insert(0, history_item)
-        save_upload_history(history)
+        add_upload_history(history_item)
         
         return jsonify({
             'status': 0,
@@ -574,7 +759,6 @@ def upload_from_url():
         
         # 保存上传历史
         try:
-            history = get_upload_history()
             history_item = {
                 'id': str(uuid.uuid4()),
                 'file_name': file_name,
@@ -584,8 +768,7 @@ def upload_from_url():
                 'channel': channel,
                 'upload_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
-            history.insert(0, history_item)
-            save_upload_history(history)
+            add_upload_history(history_item)
         except Exception as e:
             logger.error(f"保存历史记录失败: {str(e)}")
             # 不阻止返回上传成功的结果
@@ -687,14 +870,10 @@ def delete_history_item(item_id):
     if not token or not verify_token(token):
         return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
     
-    history = get_upload_history()
-    new_history = [item for item in history if item['id'] != item_id]
-    
-    if len(history) == len(new_history):
+    if delete_history_by_id(item_id):
+        return jsonify({'status': 0, 'message': '删除成功'})
+    else:
         return jsonify({'status': 1, 'message': '找不到指定记录'}), 404
-    
-    save_upload_history(new_history)
-    return jsonify({'status': 0, 'message': '删除成功'})
 
 @app.route('/clear_history', methods=['DELETE'])
 def clear_history():
@@ -703,7 +882,7 @@ def clear_history():
     if not token or not verify_token(token):
         return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
     
-    save_upload_history([])
+    clear_all_history()
     return jsonify({'status': 0, 'message': '清除成功'})
 
 def generate_request_headers(url, use_smart_referer=True):
