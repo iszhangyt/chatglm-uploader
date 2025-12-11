@@ -322,6 +322,7 @@ function initImageViewer() {
     // 如果已存在查看器实例，先销毁
     if (imageViewer) {
         imageViewer.destroy();
+        imageViewer = null;
     }
     
     // 获取所有历史图片
@@ -333,8 +334,14 @@ function initImageViewer() {
             e.preventDefault();
             e.stopPropagation();
             
-            // 创建临时查看器实例
-            const tempViewer = new Viewer(this, {
+            // 如果已存在查看器实例，先销毁
+            if (imageViewer) {
+                imageViewer.destroy();
+                imageViewer = null;
+            }
+            
+            // 创建查看器实例
+            imageViewer = new Viewer(this, {
                 inline: false,
                 navbar: false,
                 title: false,
@@ -365,8 +372,18 @@ function initImageViewer() {
                 toggleOnDblclick: true,
                 transition: false,
                 loading: false,
+                // 关键修复：在查看器隐藏后销毁实例
+                hidden: function() {
+                    // 延迟销毁，确保动画完成
+                    setTimeout(() => {
+                        if (imageViewer) {
+                            imageViewer.destroy();
+                            imageViewer = null;
+                        }
+                    }, 100);
+                }
             });
-            tempViewer.show();
+            imageViewer.show();
         });
     });
 }
