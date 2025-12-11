@@ -8,7 +8,7 @@
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <!-- Viewer.js CSS -->
-    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/viewerjs/1.11.7/viewer.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/viewer.min.css') }}">
 </head>
 <body>
     <div class="container">
@@ -180,7 +180,7 @@
     </div>
 
     <!-- Viewer.js库 -->
-    <script src="https://cdn.bootcdn.net/ajax/libs/viewerjs/1.11.7/viewer.min.js"></script>
+    <script src="{{ url_for('static', filename='js/viewer.min.js') }}"></script>
     <!-- 加载脚本 -->
     <script src="{{ url_for('static', filename='js/history.js') }}"></script>
 </body>
