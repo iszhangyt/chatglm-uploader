@@ -62,13 +62,20 @@ def init_database():
             file_url TEXT NOT NULL,
             width INTEGER DEFAULT 0,
             height INTEGER DEFAULT 0,
+            file_size INTEGER DEFAULT 0,
             channel TEXT,
             upload_time TEXT NOT NULL
         )
     ''')
     # 创建按上传时间降序的索引，加速查询
     conn.execute('CREATE INDEX IF NOT EXISTS idx_upload_time ON upload_history(upload_time DESC)')
-    
+
+    # 数据库迁移：为已存在的表添加 file_size 列（如果不存在）
+    cursor = conn.execute('PRAGMA table_info(upload_history)')
+    columns = [column[1] for column in cursor.fetchall()]
+    if 'file_size' not in columns:
+        conn.execute('ALTER TABLE upload_history ADD COLUMN file_size INTEGER DEFAULT 0')
+
     # 验证配置表（存储验证码哈希和盐值）
     conn.execute('''
         CREATE TABLE IF NOT EXISTS verification_config (
@@ -194,7 +201,7 @@ def get_upload_history():
     """获取所有上传历史"""
     with get_db_connection() as conn:
         cursor = conn.execute(
-            'SELECT id, file_name, file_url, width, height, channel, upload_time '
+            'SELECT id, file_name, file_url, width, height, file_size, channel, upload_time '
             'FROM upload_history ORDER BY upload_time DESC'
         )
         return [dict(row) for row in cursor.fetchall()]
@@ -203,15 +210,16 @@ def add_upload_history(item):
     """添加一条上传历史"""
     with get_db_connection() as conn:
         conn.execute('''
-            INSERT INTO upload_history 
-            (id, file_name, file_url, width, height, channel, upload_time)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO upload_history
+            (id, file_name, file_url, width, height, file_size, channel, upload_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
-            item['id'], 
-            item['file_name'], 
+            item['id'],
+            item['file_name'],
             item['file_url'],
-            item.get('width', 0), 
-            item.get('height', 0), 
+            item.get('width', 0),
+            item.get('height', 0),
+            item.get('file_size', 0),
             item.get('channel', ''),
             item['upload_time']
         ))
@@ -461,6 +469,7 @@ def upload_image():
             'file_url': result['file_url'],
             'width': result.get('width', validated_file.width),
             'height': result.get('height', validated_file.height),
+            'file_size': file_size,
             'channel': channel,
             'upload_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
@@ -765,6 +774,7 @@ def upload_from_url():
                 'file_url': result['file_url'],
                 'width': result.get('width', validated_file.width),
                 'height': result.get('height', validated_file.height),
+                'file_size': file_size,
                 'channel': channel,
                 'upload_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }

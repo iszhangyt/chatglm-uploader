@@ -43,6 +43,19 @@ let allHistoryItems = []; // 存储所有历史记录
 // 图片查看器实例
 let imageViewer = null;
 
+// 格式化文件大小为人类可读格式
+function formatFileSize(bytes) {
+    if (!bytes || bytes === 0) return '';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let unitIndex = 0;
+    let size = bytes;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+    }
+    return size.toFixed(unitIndex === 0 ? 0 : 2) + ' ' + units[unitIndex];
+}
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
     // 检查验证状态
@@ -269,7 +282,7 @@ function renderHistoryList(history) {
             <div class="history-item-info">
                 <div class="history-item-name" title="${item.file_name}">${item.file_name}</div>
                 <div class="history-item-time">${item.upload_time}</div>
-                <div class="history-item-channel">${channelMap[item.channel] || item.channel || '未知'}</div>
+                <div class="history-item-channel">${channelMap[item.channel] || item.channel || '未知'}${item.file_size ? ' · ' + formatFileSize(item.file_size) : ''}</div>
             </div>
             <div class="history-item-actions">
                 <button class="btn copy-url-btn" title="复制链接" data-url="${item.file_url}">复制链接</button>
