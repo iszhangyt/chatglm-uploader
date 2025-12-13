@@ -56,29 +56,47 @@ function formatFileSize(bytes) {
     return size.toFixed(unitIndex === 0 ? 0 : 2) + ' ' + units[unitIndex];
 }
 
+// 预加载历史数据的Promise
+let preloadHistoryPromise = null;
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
-    // 检查验证状态
-    checkVerification();
+    // 并行：检查验证状态 + 预加载历史数据
+    parallelInitialize();
 });
 
-// 检查验证状态
-function checkVerification() {
+// 并行初始化：验证和数据加载同时进行
+function parallelInitialize() {
     const token = localStorage.getItem('verificationToken');
     
-    // 验证令牌存在，验证其有效性
-    if (token) {
-        fetchWithTimeout('/api/check_verification', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ token: token })
-        }, 10000)  // 10秒超时
+    if (!token) {
+        // 没有验证令牌，直接跳转到验证页
+        redirectToVerify();
+        return;
+    }
+    
+    // 并行发起两个请求
+    const verifyPromise = fetchWithTimeout('/api/check_verification', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: token })
+    }, 10000);
+    
+    // 同时预加载历史数据
+    preloadHistoryPromise = fetchWithTimeout('/history', {
+        headers: {
+            'X-Verification-Token': token
+        }
+    }, 15000);
+    
+    // 处理验证结果
+    verifyPromise
         .then(response => response.json())
         .then(data => {
             if (data.status === 0) {
-                // 验证有效，初始化应用
+                // 验证有效，初始化应用（使用预加载的数据）
                 initializeApp();
             } else {
                 // 验证无效，跳转到验证页
@@ -95,10 +113,6 @@ function checkVerification() {
                 redirectToVerify();
             }
         });
-    } else {
-        // 没有验证令牌，跳转到验证页
-        redirectToVerify();
-    }
 }
 
 // 跳转到验证页
@@ -109,7 +123,8 @@ function redirectToVerify() {
 // 初始化应用
 function initializeApp() {
     setupEventListeners();
-    loadHistory();
+    // 使用预加载的数据
+    loadHistoryFromPreload();
 }
 
 // 设置事件监听器
@@ -193,7 +208,80 @@ function showHistoryList() {
     historyList.hidden = false;
 }
 
-// 加载历史记录
+// 处理历史数据（公共逻辑）
+function processHistoryData(data) {
+    if (data.status === 0) {
+        // 存储所有历史记录
+        allHistoryItems = data.result;
+        
+        if (allHistoryItems.length === 0) {
+            // 显示空状态
+            showEmpty();
+            return;
+        }
+        
+        // 计算总页数
+        totalPages = Math.ceil(allHistoryItems.length / itemsPerPage);
+        
+        // 如果当前页超出范围，重置为第一页
+        if (currentPage > totalPages) {
+            currentPage = 1;
+        }
+        
+        // 显示历史列表
+        showHistoryList();
+        
+        // 渲染当前页的历史记录
+        renderHistoryPage();
+        
+        // 更新分页控制
+        updatePaginationControls();
+    } else {
+        showError();
+        showToast(`获取历史记录失败: ${data.message}`, 'error');
+    }
+}
+
+// 使用预加载的数据加载历史记录
+function loadHistoryFromPreload() {
+    // 显示加载状态（骨架屏已经在显示）
+    showLoading();
+    
+    if (!preloadHistoryPromise) {
+        // 如果没有预加载的请求，回退到普通加载
+        loadHistory();
+        return;
+    }
+    
+    preloadHistoryPromise
+        .then(response => {
+            if (response.status === 401) {
+                localStorage.removeItem('verificationToken');
+                redirectToVerify();
+                throw new Error('验证已过期');
+            }
+            return response.json();
+        })
+        .then(data => {
+            processHistoryData(data);
+        })
+        .catch(error => {
+            if (error.message !== '验证已过期') {
+                showError();
+                if (error.name === 'AbortError') {
+                    showToast('加载历史记录超时，请点击重试', 'error');
+                } else {
+                    console.error('Error loading history:', error);
+                }
+            }
+        })
+        .finally(() => {
+            // 清除预加载的Promise，后续刷新使用普通加载
+            preloadHistoryPromise = null;
+        });
+}
+
+// 加载历史记录（用于刷新按钮）
 function loadHistory() {
     const token = localStorage.getItem('verificationToken');
     
@@ -215,36 +303,7 @@ function loadHistory() {
         return response.json();
     })
     .then(data => {
-        if (data.status === 0) {
-            // 存储所有历史记录
-            allHistoryItems = data.result;
-            
-            if (allHistoryItems.length === 0) {
-                // 显示空状态
-                showEmpty();
-                return;
-            }
-            
-            // 计算总页数
-            totalPages = Math.ceil(allHistoryItems.length / itemsPerPage);
-            
-            // 如果当前页超出范围，重置为第一页
-            if (currentPage > totalPages) {
-                currentPage = 1;
-            }
-            
-            // 显示历史列表
-            showHistoryList();
-            
-            // 渲染当前页的历史记录
-            renderHistoryPage();
-            
-            // 更新分页控制
-            updatePaginationControls();
-        } else {
-            showError();
-            showToast(`获取历史记录失败: ${data.message}`, 'error');
-        }
+        processHistoryData(data);
     })
     .catch(error => {
         if (error.message !== '验证已过期') {

@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
+from flask_compress import Compress
 import os
 import json
 import requests
@@ -21,6 +22,7 @@ from contextlib import contextmanager
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
+Compress(app)  # 启用Gzip压缩
 
 # 创建数据存储目录
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
