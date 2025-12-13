@@ -179,9 +179,9 @@
         </div>
     </div>
 
-    <!-- Viewer.js库 -->
-    <script src="https://cdn.bootcdn.net/ajax/libs/viewerjs/1.11.7/viewer.min.js"></script>
-    <!-- 加载脚本 -->
+    <!-- Viewer.js - async 独立加载，不阻塞其他脚本 -->
+    <script async src="https://cdn.bootcdn.net/ajax/libs/viewerjs/1.11.7/viewer.min.js"></script>
+    <!-- 主脚本 - 正常加载，不等待 viewer.js -->
     <script src="{{ url_for('static', filename='js/history.js') }}"></script>
 </body>
 </html>

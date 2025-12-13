@@ -352,7 +352,65 @@ function renderHistoryList(history) {
     initImageViewer();
 }
 
-// 初始化图片查看器
+// 显示图片查看器
+function showImageViewer(imgElement) {
+    // 检查 Viewer.js 是否已加载
+    if (typeof Viewer === 'undefined') {
+        showToast('图片查看器正在加载，请稍后再试', 'info');
+        return;
+    }
+    
+    // 如果已存在查看器实例，先销毁
+    if (imageViewer) {
+        imageViewer.destroy();
+        imageViewer = null;
+    }
+    
+    // 创建查看器实例
+    imageViewer = new Viewer(imgElement, {
+        inline: false,
+        navbar: false,
+        title: false,
+        toolbar: {
+            zoomIn: true,
+            zoomOut: true,
+            oneToOne: true,
+            reset: true,
+            prev: false,
+            next: false,
+            rotateLeft: true,
+            rotateRight: true,
+            flipHorizontal: true,
+            flipVertical: true,
+        },
+        url: 'data-original',
+        keyboard: true,
+        backdrop: true,
+        loop: false,
+        tooltip: true,
+        movable: true,
+        zoomable: true,
+        zoomRatio: 0.4,
+        minZoomRatio: 0.05,
+        maxZoomRatio: 10,
+        rotatable: true,
+        scalable: true,
+        toggleOnDblclick: true,
+        transition: false,
+        loading: false,
+        hidden: function() {
+            setTimeout(() => {
+                if (imageViewer) {
+                    imageViewer.destroy();
+                    imageViewer = null;
+                }
+            }, 100);
+        }
+    });
+    imageViewer.show();
+}
+
+// 初始化图片查看器（绑定点击事件）
 function initImageViewer() {
     // 如果已存在查看器实例，先销毁
     if (imageViewer) {
@@ -368,57 +426,7 @@ function initImageViewer() {
         img.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            
-            // 如果已存在查看器实例，先销毁
-            if (imageViewer) {
-                imageViewer.destroy();
-                imageViewer = null;
-            }
-            
-            // 创建查看器实例
-            imageViewer = new Viewer(this, {
-                inline: false,
-                navbar: false,
-                title: false,
-                toolbar: {
-                    zoomIn: true,
-                    zoomOut: true,
-                    oneToOne: true,
-                    reset: true,
-                    prev: false,
-                    next: false,
-                    rotateLeft: true,
-                    rotateRight: true,
-                    flipHorizontal: true,
-                    flipVertical: true,
-                },
-                url: 'data-original',
-                keyboard: true,
-                backdrop: true,
-                loop: false,
-                tooltip: true,
-                movable: true,
-                zoomable: true,
-                zoomRatio: 0.4,
-                minZoomRatio: 0.05,
-                maxZoomRatio: 10,
-                rotatable: true,
-                scalable: true,
-                toggleOnDblclick: true,
-                transition: false,
-                loading: false,
-                // 关键修复：在查看器隐藏后销毁实例
-                hidden: function() {
-                    // 延迟销毁，确保动画完成
-                    setTimeout(() => {
-                        if (imageViewer) {
-                            imageViewer.destroy();
-                            imageViewer = null;
-                        }
-                    }, 100);
-                }
-            });
-            imageViewer.show();
+            showImageViewer(this);
         });
     });
 }
