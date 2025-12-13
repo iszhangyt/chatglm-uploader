@@ -258,6 +258,25 @@ function loadHistory() {
     });
 }
 
+// 生成阿里云OSS缩略图URL
+// 米游社渠道的图片存储在阿里云OSS，可以使用OSS图片处理功能生成缩略图以加快加载
+function getOssThumbnailUrl(originalUrl, channel) {
+    // 只有米游社渠道的图片才使用OSS图片处理
+    if (channel !== 'miyoushe') {
+        return originalUrl;
+    }
+    
+    // OSS图片处理参数：宽度600px，质量80%
+    const ossProcess = 'x-oss-process=image/resize,s_600/quality,q_80/interlace,1/format,webp';
+   
+    // 检查URL是否已包含查询参数
+    if (originalUrl.includes('?')) {
+        return `${originalUrl}&${ossProcess}`;
+    } else {
+        return `${originalUrl}?${ossProcess}`;
+    }
+}
+
 // 渲染历史记录列表
 function renderHistoryList(history) {
     historyList.innerHTML = '';
@@ -270,11 +289,14 @@ function renderHistoryList(history) {
     };
     
     history.forEach(item => {
+        // 获取缩略图URL（米游社渠道使用OSS图片处理）
+        const thumbnailUrl = getOssThumbnailUrl(item.file_url, item.channel);
+        
         const historyItem = document.createElement('div');
         historyItem.className = 'history-item';
         historyItem.innerHTML = `
             <div class="history-item-img-container">
-                <img class="history-item-img" src="${item.file_url}" alt="${item.file_name}" data-original="${item.file_url}" loading="lazy">
+                <img class="history-item-img" src="${thumbnailUrl}" alt="${item.file_name}" data-original="${item.file_url}" loading="lazy">
                 <div class="img-loading-placeholder">
                     <div class="img-spinner"></div>
                 </div>
