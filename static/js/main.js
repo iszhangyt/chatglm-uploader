@@ -22,6 +22,7 @@ const toast = document.getElementById('toast');
 // 图片链接上传
 const imageUrlInput = document.getElementById('image-url-input');
 const urlUploadBtn = document.getElementById('url-upload-btn');
+const pasteUrlBtn = document.getElementById('paste-url-btn');
 const urlUploadContainer = document.querySelector('.url-upload-container');
 
 // 上传状态标记
@@ -207,6 +208,13 @@ function setupEventListeners() {
                 e.preventDefault();
                 handleUrlUpload();
             }
+        });
+    }
+    
+    // 一键粘贴按钮
+    if (pasteUrlBtn) {
+        pasteUrlBtn.addEventListener('click', (e) => {
+            handlePasteUrl(e);
         });
     }
     
@@ -702,4 +710,83 @@ function handleUrlUpload() {
     }));
     
     showToast('正在从链接获取图片...');
+}
+
+// 处理一键粘贴链接
+function handlePasteUrl(e) {
+    // 方法1: 优先使用 Clipboard API（现代浏览器）
+    if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText()
+            .then(text => {
+                if (text && text.trim()) {
+                    imageUrlInput.value = text.trim();
+                    imageUrlInput.focus();
+                    imageUrlInput.setSelectionRange(text.trim().length, text.trim().length);
+                    showToast('已粘贴链接', 'success');
+                } else {
+                    showToast('剪贴板为空', 'warning');
+                }
+            })
+            .catch(err => {
+                console.log('Clipboard API 失败，尝试降级方案:', err);
+                // Clipboard API 失败，降级到 execCommand
+                tryExecCommand();
+            });
+    } else {
+        // 浏览器不支持 Clipboard API，使用降级方案
+        tryExecCommand();
+    }
+    
+    // 方法2: 降级方案 - 使用 document.execCommand（兼容老浏览器）
+    function tryExecCommand() {
+        // 创建 paste 事件监听器来捕获粘贴内容
+        const pasteHandler = (pasteEvent) => {
+            pasteEvent.preventDefault();
+            pasteEvent.stopPropagation();
+            
+            // 获取粘贴的内容
+            let pastedText = '';
+            if (pasteEvent.clipboardData && pasteEvent.clipboardData.getData) {
+                pastedText = pasteEvent.clipboardData.getData('text/plain');
+            } else if (window.clipboardData && window.clipboardData.getData) {
+                // IE 浏览器
+                pastedText = window.clipboardData.getData('Text');
+            }
+            
+            if (pastedText && pastedText.trim()) {
+                imageUrlInput.value = pastedText.trim();
+                imageUrlInput.focus();
+                imageUrlInput.setSelectionRange(pastedText.trim().length, pastedText.trim().length);
+                showToast('已粘贴链接', 'success');
+            } else {
+                showToast('剪贴板为空', 'warning');
+            }
+            
+            // 移除事件监听器
+            imageUrlInput.removeEventListener('paste', pasteHandler);
+        };
+        
+        // 添加 paste 事件监听器
+        imageUrlInput.addEventListener('paste', pasteHandler, { once: true });
+        
+        // 让输入框获得焦点并选中内容
+        imageUrlInput.focus();
+        imageUrlInput.select();
+        
+        // 尝试执行粘贴命令（在用户交互事件中通常不需要权限）
+        try {
+            const success = document.execCommand('paste');
+            if (!success) {
+                // execCommand 失败，提示用户手动粘贴
+                imageUrlInput.removeEventListener('paste', pasteHandler);
+                imageUrlInput.focus();
+                showToast('请使用 Ctrl+V 手动粘贴', 'info');
+            }
+        } catch (err) {
+            // execCommand 失败，提示用户手动粘贴
+            imageUrlInput.removeEventListener('paste', pasteHandler);
+            imageUrlInput.focus();
+            showToast('请使用 Ctrl+V 手动粘贴', 'info');
+        }
+    }
 }

@@ -44,7 +44,15 @@
             </div>
             <div class="url-upload-container">
                 <div class="url-upload">
-                    <input type="text" id="image-url-input" placeholder="输入图片链接URL" class="url-input">
+                    <div class="url-input-wrapper">
+                        <input type="text" id="image-url-input" placeholder="输入图片链接URL" class="url-input">
+                        <button id="paste-url-btn" class="paste-icon-btn" title="粘贴链接">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                                <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                            </svg>
+                        </button>
+                    </div>
                     <button id="url-upload-btn" class="btn btn-primary url-upload-btn">链接上传</button>
                 </div>
             </div>
