@@ -330,6 +330,7 @@ def random_image():
         h: 可选，设备屏幕高度
         orientation: 可选，指定方向 (landscape=横屏, portrait=竖屏, auto=自动检测[默认])
         type: 可选，返回类型 (redirect=302重定向, json=返回JSON)
+        q: 可选，图片质量 (0=原图[默认], 1=压缩图)
     
     返回:
         默认 302 重定向到图片URL，或返回 JSON 格式的图片信息
@@ -337,6 +338,10 @@ def random_image():
     自动检测逻辑:
         - 如果未指定 orientation 且未传递 w/h，则根据 User-Agent 自动判断
         - 移动设备 → 竖屏图片，桌面设备 → 横屏图片
+    
+    图片质量:
+        - 0: 返回原图（默认）
+        - 1: 返回压缩图（通过OSS图片处理参数实现，最大边1920px，质量80%，WebP格式）
     """
     # 获取查询参数
     channel = request.args.get('channel', '').strip()
@@ -344,6 +349,7 @@ def random_image():
     screen_height = request.args.get('h', type=int)
     orientation = request.args.get('orientation', '').strip().lower()
     response_type = request.args.get('type', 'redirect').strip().lower()
+    quality = request.args.get('q', '0').strip()  # 0=原图, 1=压缩图
     
     # 根据屏幕尺寸判断需要的图片方向
     # orientation: landscape = 横屏 (宽>高), portrait = 竖屏 (高>宽)
@@ -369,27 +375,57 @@ def random_image():
                 'message': '没有找到符合条件的图片'
             }), 404
         
+        # 处理图片 URL（根据 quality 参数决定是否添加压缩参数）
+        file_url = process_image_url(image['file_url'], quality)
+        
         # 根据返回类型决定响应方式
         if response_type == 'json':
             return jsonify({
                 'status': 0,
                 'message': 'success',
                 'result': {
-                    'file_url': image['file_url'],
+                    'file_url': file_url,
                     'file_name': image['file_name'],
                     'width': image['width'],
                     'height': image['height'],
-                    'channel': image['channel']
+                    'channel': image['channel'],
+                    'quality': quality
                 }
             })
         else:
             # 302 重定向到图片URL，速度最快
             from flask import redirect
-            return redirect(image['file_url'], code=302)
+            return redirect(file_url, code=302)
             
     except Exception as e:
         logger.error(f"随机图片接口错误: {str(e)}", exc_info=True)
         return jsonify({'status': 1, 'message': '服务器内部错误'}), 500
+
+
+def process_image_url(url, quality='0'):
+    """
+    根据质量参数处理图片 URL
+    
+    参数:
+        url: 原始图片 URL
+        quality: 图片质量
+            - '0': 返回原图（默认）
+            - '1': 返回压缩图（OSS图片处理）
+    
+    返回:
+        str: 处理后的图片 URL
+    """
+    if quality != '1':
+        return url
+    
+    # OSS 图片处理参数：最大边1920px，质量80%，渐进式加载，WebP格式
+    oss_process = 'x-oss-process=image/resize,s_1920/quality,q_80/interlace,1/format,webp'
+    
+    # 判断 URL 中是否已有查询参数
+    if '?' in url:
+        return f"{url}&{oss_process}"
+    else:
+        return f"{url}?{oss_process}"
 
 
 def detect_device_orientation(user_agent):
