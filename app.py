@@ -71,6 +71,10 @@ def init_database():
     ''')
     # 创建按上传时间降序的索引，加速查询
     conn.execute('CREATE INDEX IF NOT EXISTS idx_upload_time ON upload_history(upload_time DESC)')
+    # 创建渠道索引，加速按渠道筛选
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_channel ON upload_history(channel)')
+    # 创建宽高索引，加速按图片方向筛选
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_dimensions ON upload_history(width, height)')
 
     # 数据库迁移：为已存在的表添加 file_size 列（如果不存在）
     cursor = conn.execute('PRAGMA table_info(upload_history)')
@@ -314,6 +318,177 @@ def verify_token(token):
 
 # 初始化验证配置
 init_verification_config()
+
+@app.route('/api/random')
+def random_image():
+    """
+    随机图片接口
+    
+    查询参数:
+        channel: 可选，指定渠道 (miyoushe, chatglm, jd)
+        w: 可选，设备屏幕宽度
+        h: 可选，设备屏幕高度
+        orientation: 可选，指定方向 (landscape=横屏, portrait=竖屏, auto=自动检测[默认])
+        type: 可选，返回类型 (redirect=302重定向, json=返回JSON)
+    
+    返回:
+        默认 302 重定向到图片URL，或返回 JSON 格式的图片信息
+    
+    自动检测逻辑:
+        - 如果未指定 orientation 且未传递 w/h，则根据 User-Agent 自动判断
+        - 移动设备 → 竖屏图片，桌面设备 → 横屏图片
+    """
+    # 获取查询参数
+    channel = request.args.get('channel', '').strip()
+    screen_width = request.args.get('w', type=int)
+    screen_height = request.args.get('h', type=int)
+    orientation = request.args.get('orientation', '').strip().lower()
+    response_type = request.args.get('type', 'redirect').strip().lower()
+    
+    # 根据屏幕尺寸判断需要的图片方向
+    # orientation: landscape = 横屏 (宽>高), portrait = 竖屏 (高>宽)
+    need_orientation = None
+    if orientation in ('landscape', 'portrait'):
+        need_orientation = orientation
+    elif screen_width and screen_height:
+        if screen_width > screen_height:
+            need_orientation = 'landscape'
+        else:
+            need_orientation = 'portrait'
+    else:
+        # 未传递参数时，根据 User-Agent 自动判断设备类型
+        need_orientation = detect_device_orientation(request.headers.get('User-Agent', ''))
+    
+    try:
+        image = get_random_image(channel=channel if channel else None, 
+                                  orientation=need_orientation)
+        
+        if not image:
+            return jsonify({
+                'status': 1, 
+                'message': '没有找到符合条件的图片'
+            }), 404
+        
+        # 根据返回类型决定响应方式
+        if response_type == 'json':
+            return jsonify({
+                'status': 0,
+                'message': 'success',
+                'result': {
+                    'file_url': image['file_url'],
+                    'file_name': image['file_name'],
+                    'width': image['width'],
+                    'height': image['height'],
+                    'channel': image['channel']
+                }
+            })
+        else:
+            # 302 重定向到图片URL，速度最快
+            from flask import redirect
+            return redirect(image['file_url'], code=302)
+            
+    except Exception as e:
+        logger.error(f"随机图片接口错误: {str(e)}", exc_info=True)
+        return jsonify({'status': 1, 'message': '服务器内部错误'}), 500
+
+
+def detect_device_orientation(user_agent):
+    """
+    根据 User-Agent 检测设备类型，返回推荐的图片方向
+    
+    参数:
+        user_agent: HTTP User-Agent 字符串
+    
+    返回:
+        str: 'landscape' (桌面设备) 或 'portrait' (移动设备)
+    """
+    if not user_agent:
+        return 'landscape'  # 默认桌面设备
+    
+    ua_lower = user_agent.lower()
+    
+    # 移动设备关键词
+    mobile_keywords = [
+        'mobile', 'android', 'iphone', 'ipad', 'ipod', 
+        'windows phone', 'blackberry', 'opera mini', 'opera mobi',
+        'iemobile', 'webos', 'palm', 'symbian', 'fennec',
+        'maemo', 'midp', 'cldc', 'up.link', 'up.browser',
+        'smartphone', 'cellphone', 'tablet'
+    ]
+    
+    # 检测是否为移动设备
+    for keyword in mobile_keywords:
+        if keyword in ua_lower:
+            # iPad 虽然是移动设备，但屏幕较大，可能更适合横屏
+            if 'ipad' in ua_lower:
+                return 'landscape'
+            return 'portrait'
+    
+    # 默认为桌面设备，返回横屏
+    return 'landscape'
+
+
+def get_random_image(channel=None, orientation=None, aspect_ratio_threshold=1.2):
+    """
+    从数据库获取随机图片
+    
+    参数:
+        channel: 可选，指定渠道名称
+        orientation: 可选，'landscape'(横屏,宽>高) 或 'portrait'(竖屏,高>宽)
+        aspect_ratio_threshold: 宽高比阈值，用于过滤接近方形的图片，默认1.2
+    
+    返回:
+        dict: 图片信息，如果没有找到返回 None
+    
+    说明:
+        使用宽高比阈值过滤，确保只返回明显的横屏/竖屏图片
+        - 横屏：宽/高 >= 1.2
+        - 竖屏：高/宽 >= 1.2
+    """
+    with get_db_connection() as conn:
+        # 构建 SQL 查询
+        sql = 'SELECT id, file_name, file_url, width, height, channel FROM upload_history WHERE 1=1'
+        params = []
+        
+        # 过滤渠道
+        if channel:
+            sql += ' AND channel = ?'
+            params.append(channel)
+        
+        # 过滤图片方向 (需要有有效的宽高数据，且使用宽高比阈值过滤接近方形的图片)
+        if orientation == 'landscape':
+            # 横屏：宽/高 >= 阈值 (明显的横屏图片)
+            sql += ' AND width > 0 AND height > 0 AND CAST(width AS REAL) / height >= ?'
+            params.append(aspect_ratio_threshold)
+        elif orientation == 'portrait':
+            # 竖屏：高/宽 >= 阈值 (明显的竖屏图片)
+            sql += ' AND width > 0 AND height > 0 AND CAST(height AS REAL) / width >= ?'
+            params.append(aspect_ratio_threshold)
+        
+        # 使用高效的随机选择策略
+        # 先获取符合条件的记录总数
+        count_sql = sql.replace(
+            'SELECT id, file_name, file_url, width, height, channel',
+            'SELECT COUNT(*)'
+        )
+        cursor = conn.execute(count_sql, params)
+        total_count = cursor.fetchone()[0]
+        
+        if total_count == 0:
+            return None
+        
+        # 使用 LIMIT + OFFSET 随机选择，比 ORDER BY RANDOM() 更高效
+        random_offset = random.randint(0, total_count - 1)
+        sql += ' LIMIT 1 OFFSET ?'
+        params.append(random_offset)
+        
+        cursor = conn.execute(sql, params)
+        row = cursor.fetchone()
+        
+        if row:
+            return dict(row)
+        return None
+
 
 @app.route('/')
 def index():
