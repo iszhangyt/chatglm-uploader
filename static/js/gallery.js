@@ -239,6 +239,10 @@ function applyFilters() {
     // 重置显示状态
     displayedCount = 0;
     isLoading = false;
+    
+    // 先隐藏加载更多区域，并清空旧文本
+    galleryLoadMore.hidden = true;
+    loadMoreInfo.textContent = '';
 
     // 重新初始化列
     initColumns();
@@ -277,11 +281,12 @@ function loadMoreImages() {
 
     const batch = filteredImages.slice(displayedCount, displayedCount + toLoad);
 
-    // 简单轮询方式分配到各列（更可靠的方式）
+    // 按时间顺序轮询分配到各列（保持上传顺序）
     batch.forEach((img, index) => {
         const item = createGalleryItem(img);
-        // 轮询分配到各列
-        const targetColumn = columns[index % columnCount];
+        // 按顺序轮询分配，保持时间顺序
+        const columnIndex = (displayedCount + index) % columnCount;
+        const targetColumn = columns[columnIndex];
         targetColumn.appendChild(item);
     });
 
@@ -423,9 +428,23 @@ function initImageViewer() {
 
 // ==================== Toast 提示 ====================
 
+let toastTimer = null;
+let toastFadeTimer = null;
+
 function showToast(message, type = 'info') {
+    // 清除之前的定时器，避免竞争条件
+    if (toastTimer) {
+        clearTimeout(toastTimer);
+        toastTimer = null;
+    }
+    if (toastFadeTimer) {
+        clearTimeout(toastFadeTimer);
+        toastFadeTimer = null;
+    }
+
     toast.textContent = message;
     toast.hidden = false;
+    toast.style.opacity = '1';
 
     toast.classList.remove('toast-error', 'toast-warning', 'toast-success', 'toast-info');
     if (type) {
@@ -434,9 +453,9 @@ function showToast(message, type = 'info') {
 
     const duration = type === 'error' ? 4000 : (type === 'warning' ? 3000 : 2000);
 
-    setTimeout(() => {
+    toastTimer = setTimeout(() => {
         toast.style.opacity = '0';
-        setTimeout(() => {
+        toastFadeTimer = setTimeout(() => {
             toast.hidden = true;
             toast.style.opacity = '1';
         }, 300);
