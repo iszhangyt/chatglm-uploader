@@ -57,19 +57,19 @@ h2 {
 }
 
 .upload-area:hover {
-    border-color: #1890ff;
+    border-color: #1d9bf0;
     background-color: #f7fafd;
 }
 
 .upload-area:hover .upload-tips {
-    color: #1890ff;
+    color: #1d9bf0;
     font-weight: 500;
 }
 
 .upload-area.dragover {
-    border-color: #1890ff;
+    border-color: #1d9bf0;
     background-color: #f0f7ff;
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+    box-shadow: 0 0 0 2px rgba(29, 155, 240, 0.2);
 }
 
 .upload-icon {
@@ -79,7 +79,7 @@ h2 {
 }
 
 .upload-area:hover .upload-icon {
-    color: #1890ff;
+    color: #1d9bf0;
 }
 
 .file-label {
@@ -110,7 +110,7 @@ h2 {
 }
 
 .upload-area:hover .upload-tips {
-    color: #1890ff;
+    color: #1d9bf0;
     font-weight: 500;
 }
 
@@ -129,7 +129,7 @@ h2 {
 
 .progress-bar-inner {
     height: 100%;
-    background-color: #7e57c2;
+    background-color: #1d9bf0;
     width: 0;
     transition: width 0.3s ease;
 }
@@ -360,12 +360,12 @@ h2 {
 }
 
 .btn-primary {
-    background-color: #7e57c2;
+    background-color: #1d9bf0;
     color: white;
 }
 
 .btn-primary:hover {
-    background-color: #6a48b0;
+    background-color: #1a8cd8;
 }
 
 .btn-danger {
@@ -421,37 +421,37 @@ h2 {
     .container {
         padding: 12px;
     }
-    
+
     header {
         margin-bottom: 15px;
     }
-    
+
     header h1 {
         font-size: 20px;
     }
-    
+
     header p {
         font-size: 12px;
     }
-    
+
     .result-section {
         padding: 12px;
     }
-    
+
     .result-section h2 {
         font-size: 16px;
         margin-bottom: 10px;
     }
-    
+
     .result-image {
         height: 150px;
         margin-bottom: 10px;
     }
-    
+
     .result-info {
         margin-bottom: 8px;
     }
-    
+
     /* 移动端链接组 - 保持水平布局但更紧凑 */
     .url-group {
         flex-direction: row;
@@ -459,14 +459,14 @@ h2 {
         margin-bottom: 6px;
         gap: 6px;
     }
-    
+
     .url-group label {
         min-width: 70px;
         width: 70px;
         font-size: 12px;
         margin-right: 0;
     }
-    
+
     .url-group input {
         flex: 1;
         min-width: 0;
@@ -474,13 +474,13 @@ h2 {
         font-size: 12px;
         margin-right: 0;
     }
-    
+
     .url-group .btn {
         padding: 5px 8px;
         font-size: 11px;
         flex-shrink: 0;
     }
-    
+
     .image-info {
         flex-direction: row;
         flex-wrap: wrap;
@@ -488,60 +488,60 @@ h2 {
         font-size: 11px;
         padding-top: 6px;
     }
-    
+
     .image-info span {
         margin-bottom: 0;
     }
-    
+
     .action-buttons {
         margin-top: 10px;
     }
-    
+
     .action-buttons .btn {
         padding: 8px 16px;
         font-size: 13px;
     }
-    
+
     /* 历史记录列表 - 两列显示 */
     .history-list {
         grid-template-columns: repeat(2, 1fr);
         gap: 10px;
     }
-    
+
     .history-item-img-container {
         height: 90px;
     }
-    
+
     .history-item-info {
         padding: 6px 8px;
         font-size: 11px;
     }
-    
+
     .history-item-name {
         font-size: 11px;
         margin-bottom: 3px;
     }
-    
+
     .history-item-time {
         font-size: 10px;
     }
-    
+
     .history-item-channel {
         font-size: 10px;
     }
-    
+
     .history-item-actions {
         flex-direction: row;
         padding: 5px 4px;
         gap: 2px;
     }
-    
+
     .history-item-actions .btn {
         padding: 3px 6px;
         font-size: 10px;
         min-width: auto;
     }
-    
+
     /* 分页区域移动端优化 */
     .pagination {
         flex-wrap: wrap;
@@ -549,13 +549,13 @@ h2 {
         justify-content: center;
         padding: 10px 0;
     }
-    
+
     .pagination button {
         padding: 5px 10px;
         min-width: 60px;
         font-size: 12px;
     }
-    
+
     #page-info {
         font-size: 12px;
         order: -1;
@@ -563,101 +563,101 @@ h2 {
         text-align: center;
         margin-bottom: 5px;
     }
-    
+
     .page-jump {
         gap: 4px;
     }
-    
+
     .page-jump-input {
         width: 40px;
         height: 28px;
         font-size: 12px;
         padding: 2px 4px;
     }
-    
+
     #page-jump-btn {
         padding: 5px 8px;
         font-size: 12px;
     }
-    
+
     /* 历史页面操作按钮 */
     .history-actions {
         gap: 6px;
         margin-bottom: 10px;
     }
-    
+
     .history-actions .btn {
         padding: 6px 10px;
         font-size: 12px;
     }
-    
+
     .history-section {
         padding: 12px;
     }
-    
+
     /* 上传区域移动端优化 */
     .upload-area {
         padding: 20px 15px;
     }
-    
+
     .upload-icon svg {
         width: 36px;
         height: 36px;
     }
-    
+
     .file-label span {
         font-size: 13px;
     }
-    
+
     .upload-tips {
         font-size: 11px;
     }
-    
+
     .channel-selector {
         margin-top: 12px;
     }
-    
+
     .channel-selector label {
         font-size: 13px;
     }
-    
+
     .channel-selector select {
         font-size: 13px;
         padding: 6px 25px 6px 10px;
     }
-    
+
     .url-upload-container {
         padding: 10px 12px;
     }
-    
+
     .url-upload {
         gap: 8px;
     }
-    
+
     .url-input {
         font-size: 13px;
         padding: 6px 30px 6px 10px;
     }
-    
+
     .paste-icon-btn {
         right: 6px;
         padding: 3px;
     }
-    
+
     .paste-icon-btn svg {
         width: 14px;
         height: 14px;
     }
-    
+
     .url-upload-btn {
         padding: 6px 12px;
         font-size: 13px;
     }
-    
+
     .history-link-section {
         margin-top: 12px;
     }
-    
+
     .history-link-btn {
         padding: 10px 18px;
         font-size: 13px;
@@ -693,7 +693,7 @@ h2 {
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231890ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d9bf0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
     background-repeat: no-repeat;
     background-position: right 8px center;
     background-size: 16px;
@@ -701,13 +701,13 @@ h2 {
 }
 
 .channel-selector select:hover {
-    border-color: #1890ff;
-    box-shadow: 0 2px 6px rgba(24, 144, 255, 0.1);
+    border-color: #1d9bf0;
+    box-shadow: 0 2px 6px rgba(29, 155, 240, 0.1);
 }
 
 .channel-selector select:focus {
-    border-color: #1890ff;
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+    border-color: #1d9bf0;
+    box-shadow: 0 0 0 2px rgba(29, 155, 240, 0.2);
     outline: none;
 }
 
@@ -751,8 +751,8 @@ h2 {
 }
 
 .url-input:focus {
-    border-color: #7e57c2;
-    box-shadow: 0 0 0 2px rgba(126, 87, 194, 0.2);
+    border-color: #1d9bf0;
+    box-shadow: 0 0 0 2px rgba(29, 155, 240, 0.2);
     outline: none;
 }
 
@@ -774,7 +774,7 @@ h2 {
 }
 
 .paste-icon-btn:hover {
-    color: #7e57c2;
+    color: #1d9bf0;
     background-color: #f5f5f5;
 }
 
@@ -834,9 +834,9 @@ h2 {
 }
 
 .page-jump-input:focus {
-    border-color: #7e57c2;
+    border-color: #1d9bf0;
     outline: none;
-    box-shadow: 0 0 0 2px rgba(126, 87, 194, 0.2);
+    box-shadow: 0 0 0 2px rgba(29, 155, 240, 0.2);
 }
 
 #page-jump-btn {
@@ -945,7 +945,7 @@ h2 {
     align-items: center;
     gap: 8px;
     padding: 12px 24px;
-    background: linear-gradient(135deg, #7e57c2 0%, #5c6bc0 100%);
+    background: linear-gradient(135deg, #1d9bf0 0%, #1a8cd8 100%);
     color: white;
     text-decoration: none;
     border-radius: 8px;
@@ -1063,6 +1063,7 @@ h2 {
     0% {
         background-position: 200% 0;
     }
+
     100% {
         background-position: -200% 0;
     }
@@ -1141,7 +1142,7 @@ h2 {
     width: 24px;
     height: 24px;
     border: 2px solid #e0e0e0;
-    border-top-color: #7e57c2;
+    border-top-color: #1d9bf0;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
@@ -1150,6 +1151,7 @@ h2 {
     0% {
         transform: rotate(0deg);
     }
+
     100% {
         transform: rotate(360deg);
     }
@@ -1176,18 +1178,318 @@ h2 {
     .loading-skeleton {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .skeleton-img {
         height: 100px;
     }
-    
+
     .history-link-btn {
         padding: 10px 20px;
         font-size: 14px;
     }
-    
+
     .back-home-btn {
         padding: 6px 12px;
         font-size: 13px;
     }
-} 
+}
+
+/* ==================== 画廊页面样式 ==================== */
+
+/* 画廊页面容器 */
+.gallery-page {
+    max-width: 1200px;
+}
+
+/* 画廊导航 */
+.gallery-nav {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+/* 筛选控件 */
+.gallery-filters {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+    padding: 15px 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-group label {
+    font-size: 14px;
+    color: #666;
+    font-weight: 500;
+}
+
+.filter-group select {
+    padding: 8px 30px 8px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    background-color: #fff;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d9bf0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+}
+
+.filter-group select:hover {
+    border-color: #1d9bf0;
+}
+
+.filter-group select:focus {
+    border-color: #1d9bf0;
+    box-shadow: 0 0 0 2px rgba(29, 155, 240, 0.2);
+    outline: none;
+}
+
+.filter-stats {
+    font-size: 14px;
+    color: #888;
+}
+
+/* 画廊加载状态 */
+.gallery-loading {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.gallery-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #ebeef0;
+    border-top-color: #1d9bf0;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 15px;
+}
+
+.gallery-loading p {
+    color: #888;
+    font-size: 14px;
+}
+
+/* 画廊错误和空状态 */
+.gallery-error,
+.gallery-empty {
+    text-align: center;
+    padding: 60px 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.gallery-error .error-icon,
+.gallery-empty .empty-icon {
+    color: #ccc;
+    margin-bottom: 15px;
+}
+
+.gallery-error .error-text,
+.gallery-empty .empty-text {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.gallery-empty .empty-hint {
+    font-size: 14px;
+    color: #999;
+    margin-bottom: 20px;
+}
+
+/* 瀑布流布局 - 使用 Flexbox 多列 */
+.gallery-masonry {
+    display: flex;
+    gap: 15px;
+}
+
+.gallery-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.gallery-item {
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.gallery-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+.gallery-item-wrapper {
+    position: relative;
+    cursor: zoom-in;
+}
+
+.gallery-item-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.gallery-item-img.loaded {
+    opacity: 1;
+}
+
+/* 图片加载状态 */
+.gallery-item-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f5f5f5;
+}
+
+.gallery-item-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #ebeef0;
+    border-top-color: #1d9bf0;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.gallery-item-error {
+    color: #999;
+    font-size: 12px;
+}
+
+/* 图片遮罩层 */
+.gallery-item-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 30px 10px 10px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.gallery-item:hover .gallery-item-overlay {
+    opacity: 1;
+}
+
+.gallery-item-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #fff;
+    font-size: 12px;
+}
+
+.gallery-item-channel {
+    background-color: rgba(255, 255, 255, 0.2);
+    padding: 2px 8px;
+    border-radius: 3px;
+}
+
+.gallery-item-size {
+    opacity: 0.9;
+}
+
+/* 加载更多 */
+.gallery-load-more {
+    text-align: center;
+    padding: 30px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.gallery-load-more #load-more-info {
+    font-size: 14px;
+    color: #888;
+}
+
+/* 响应式：平板 - JS控制列数，CSS只需调整间距 */
+@media (max-width: 1024px) {
+    .gallery-masonry {
+        gap: 12px;
+    }
+
+    .gallery-column {
+        gap: 12px;
+    }
+}
+
+/* 响应式：手机 */
+@media (max-width: 768px) {
+    .gallery-page {
+        padding: 10px;
+    }
+
+    .gallery-nav {
+        gap: 10px;
+    }
+
+    .gallery-filters {
+        padding: 12px 15px;
+        gap: 12px;
+    }
+
+    .filter-group label {
+        font-size: 13px;
+    }
+
+    .filter-group select {
+        padding: 6px 25px 6px 10px;
+        font-size: 13px;
+    }
+
+    .gallery-masonry {
+        gap: 10px;
+    }
+
+    .gallery-column {
+        gap: 10px;
+    }
+
+    .gallery-item {
+        border-radius: 6px;
+    }
+
+    .gallery-item-overlay {
+        padding: 20px 8px 8px;
+    }
+
+    .gallery-item-info {
+        font-size: 11px;
+    }
+}

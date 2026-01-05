@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片画廊 - FusionPic</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Viewer.js CSS -->
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/viewerjs/1.11.7/viewer.min.css">
+</head>
+<body>
+    <div class="container gallery-page">
+        <header>
+            <h1>图片画廊</h1>
+            <p>瀑布流浏览所有上传的图片</p>
+            <div class="gallery-nav">
+                <a href="/" class="back-home-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 12H5"></path>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    返回上传
+                </a>
+                <a href="/history_page" class="back-home-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    历史记录
+                </a>
+            </div>
+        </header>
+
+        <!-- 筛选控件 -->
+        <div class="gallery-filters">
+            <div class="filter-group">
+                <label for="channel-filter">渠道：</label>
+                <select id="channel-filter">
+                    <option value="">全部</option>
+                    <option value="miyoushe">米游社</option>
+                    <option value="chatglm">ChatGLM</option>
+                    <option value="jd">京东</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="orientation-filter">方向：</label>
+                <select id="orientation-filter">
+                    <option value="">全部</option>
+                    <option value="landscape">横屏</option>
+                    <option value="portrait">竖屏</option>
+                </select>
+            </div>
+            <div class="filter-stats">
+                <span id="image-count">共 0 张图片</span>
+            </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div class="gallery-loading" id="gallery-loading">
+            <div class="gallery-spinner"></div>
+            <p>正在加载图片...</p>
+        </div>
+
+        <!-- 错误状态 -->
+        <div class="gallery-error" id="gallery-error" hidden>
+            <div class="error-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <p class="error-text">加载失败，请重试</p>
+            <button id="retry-btn" class="btn btn-primary">重新加载</button>
+        </div>
+
+        <!-- 空状态 -->
+        <div class="gallery-empty" id="gallery-empty" hidden>
+            <div class="empty-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+            </div>
+            <p class="empty-text">暂无图片</p>
+            <p class="empty-hint">上传图片后，将显示在这里</p>
+            <a href="/" class="btn btn-primary">去上传图片</a>
+        </div>
+
+        <!-- 瀑布流画廊 -->
+        <div class="gallery-masonry" id="gallery-masonry" hidden></div>
+
+        <!-- 加载更多 -->
+        <div class="gallery-load-more" id="gallery-load-more" hidden>
+            <button id="load-more-btn" class="btn btn-primary">加载更多</button>
+            <span id="load-more-info"></span>
+        </div>
+    </div>
+
+    <!-- 提示框 -->
+    <div class="toast" id="toast" hidden></div>
+
+    <!-- Viewer.js -->
+    <script async src="https://cdn.bootcdn.net/ajax/libs/viewerjs/1.11.7/viewer.min.js"></script>
+    <!-- 画廊脚本 -->
+    <script src="{{ url_for('static', filename='js/gallery.js') }}"></script>
+</body>
+</html>

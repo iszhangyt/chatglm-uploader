@@ -538,6 +538,10 @@ def verify_page():
 def history_page():
     return render_template('history.html')
 
+@app.route('/gallery')
+def gallery_page():
+    return render_template('gallery.html')
+
 @app.route('/api/verify', methods=['POST'])
 def verify():
     data = request.json
