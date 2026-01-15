@@ -713,9 +713,11 @@ def upload_image():
     logger.info(f"开始上传: 文件={file.filename}, 渠道={channel}")
     
     try:
-        # 保存临时文件
-        temp_file_name = f"temp_{uuid.uuid4().hex}{os.path.splitext(file.filename)[1]}"
-        temp_file_path = os.path.join(DATA_DIR, temp_file_name)
+        # 保存临时文件（使用 tempfile 模块确保安全）
+        ext = os.path.splitext(file.filename)[1].lower()
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
+        temp_file_path = temp_file.name
+        temp_file.close()  # 关闭后再用 file.save 写入
         file.save(temp_file_path)
         
         # 获取文件大小
