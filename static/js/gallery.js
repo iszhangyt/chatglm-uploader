@@ -161,23 +161,14 @@ function updateLoadMoreState() {
  * 加载图片数据
  */
 function loadImages() {
-    const token = localStorage.getItem('verificationToken');
-
-    if (!token) {
-        window.location.href = '/verify';
-        return;
-    }
-
     showLoading();
 
+    // Cookie 会自动携带
     fetchWithTimeout('/history', {
-        headers: {
-            'X-Verification-Token': token
-        }
+        credentials: 'same-origin'
     }, 15000)
         .then(response => {
             if (response.status === 401) {
-                localStorage.removeItem('verificationToken');
                 window.location.href = '/verify';
                 throw new Error('验证已过期');
             }
@@ -239,7 +230,7 @@ function applyFilters() {
     // 重置显示状态
     displayedCount = 0;
     isLoading = false;
-    
+
     // 先隐藏加载更多区域，并清空旧文本
     galleryLoadMore.hidden = true;
     loadMoreInfo.textContent = '';

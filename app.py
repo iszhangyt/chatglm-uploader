@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, make_response
 from flask_cors import CORS
 from flask_compress import Compress
 import os
@@ -317,6 +317,17 @@ def verify_token(token):
                 conn.execute('DELETE FROM valid_tokens WHERE token = ?', (token,))
                 conn.commit()
     return False
+
+
+def get_auth_token():
+    """
+    从 Cookie 获取认证 Token
+    
+    返回:
+        str or None: Token 字符串，如果不存在返回 None
+    """
+    return request.cookies.get('auth_token')
+
 
 # 初始化验证配置
 init_verification_config()
@@ -652,15 +663,23 @@ def verify():
     expires_at = current_time + 30 * 24 * 60 * 60  # 30天有效期
     add_valid_token(token, current_time, expires_at)
     
-    return jsonify({'status': 0, 'message': '验证成功', 'token': token})
+    # 创建响应并设置 HttpOnly Cookie
+    response = make_response(jsonify({'status': 0, 'message': '验证成功'}))
+    response.set_cookie(
+        'auth_token',
+        token,
+        httponly=True,           # JavaScript 无法读取
+        samesite='Strict',       # 防止 CSRF
+        max_age=30*24*60*60,     # 30天有效期
+        secure=False,            # 开发环境不强制 HTTPS，生产环境应设为 True
+        path='/'
+    )
+    return response
 
-@app.route('/api/check_verification', methods=['POST'])
+@app.route('/api/check_verification', methods=['POST', 'GET'])
 def check_verification():
-    data = request.json
-    if not data or 'token' not in data:
-        return jsonify({'status': 1, 'message': '无效的请求'}), 400
-    
-    token = data['token']
+    # 从 Cookie 获取 Token
+    token = get_auth_token()
     
     if verify_token(token):
         return jsonify({'status': 0, 'message': '验证有效'})
@@ -669,8 +688,8 @@ def check_verification():
 
 @app.route('/upload', methods=['POST'])
 def upload_image():
-    # 验证token
-    token = request.headers.get('X-Verification-Token')
+    # 验证token（从 Cookie 获取）
+    token = get_auth_token()
     if not token or not verify_token(token):
         logger.warning("上传请求验证失败: token无效或已过期")
         return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
@@ -795,8 +814,8 @@ def upload_from_url():
     # 临时文件路径，用于在出现异常时清理
     temp_file_path = None
     
-    # 验证token
-    token = request.headers.get('X-Verification-Token')
+    # 验证token（从 Cookie 获取）
+    token = get_auth_token()
     if not token or not verify_token(token):
         logger.warning("URL上传请求验证失败: token无效或已过期")
         return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
@@ -1170,8 +1189,8 @@ def validate_image(file_path, original_filename=None):
 
 @app.route('/history', methods=['GET'])
 def get_history():
-    # 验证token
-    token = request.headers.get('X-Verification-Token')
+    # 验证token（从 Cookie 获取）
+    token = get_auth_token()
     if not token or not verify_token(token):
         return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
     
@@ -1180,8 +1199,8 @@ def get_history():
 
 @app.route('/delete_history/<item_id>', methods=['DELETE'])
 def delete_history_item(item_id):
-    # 验证token
-    token = request.headers.get('X-Verification-Token')
+    # 验证token（从 Cookie 获取）
+    token = get_auth_token()
     if not token or not verify_token(token):
         return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
     
@@ -1192,8 +1211,8 @@ def delete_history_item(item_id):
 
 @app.route('/clear_history', methods=['DELETE'])
 def clear_history():
-    # 验证token
-    token = request.headers.get('X-Verification-Token')
+    # 验证token（从 Cookie 获取）
+    token = get_auth_token()
     if not token or not verify_token(token):
         return jsonify({'status': 1, 'message': '未验证或验证已过期'}), 401
     

@@ -34,7 +34,7 @@ let isMouseOverDropArea = false;
 function fetchWithTimeout(url, options = {}, timeout = 15000) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
-    
+
     return fetch(url, {
         ...options,
         signal: controller.signal
@@ -49,17 +49,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 检查验证状态
 function checkVerification() {
-    const token = localStorage.getItem('verificationToken');
-    
-    // 验证令牌存在，验证其有效性
-    if (token) {
-        fetchWithTimeout('/api/check_verification', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ token: token })
-        }, 10000)  // 10秒超时
+    // Cookie 会自动携带，直接请求后端验证
+    fetchWithTimeout('/api/check_verification', {
+        method: 'GET',
+        credentials: 'same-origin'  // 确保携带 Cookie
+    }, 10000)
         .then(response => response.json())
         .then(data => {
             if (data.status === 0) {
@@ -78,10 +72,6 @@ function checkVerification() {
                 redirectToVerify();
             }
         });
-    } else {
-        // 没有验证令牌，跳转到验证页
-        redirectToVerify();
-    }
 }
 
 // 跳转到验证页
@@ -94,14 +84,14 @@ function initializeApp() {
     setupEventListeners();
     // 恢复用户选择的渠道
     restoreSelectedChannel();
-    
+
     // 页面加载完成后检测鼠标是否已经在上传区域上
     // 使用一次性的mousemove事件来获取鼠标位置
     let initialPositionChecked = false;
     function checkInitialMousePosition(e) {
         if (initialPositionChecked) return;
         initialPositionChecked = true;
-        
+
         const dropAreaRect = dropArea.getBoundingClientRect();
         if (
             e.clientX >= dropAreaRect.left &&
@@ -111,11 +101,11 @@ function initializeApp() {
         ) {
             isMouseOverDropArea = true;
         }
-        
+
         // 移除事件监听器，不再需要它
         document.removeEventListener('mousemove', checkInitialMousePosition);
     }
-    
+
     // 添加监听器来捕获第一次鼠标移动事件
     document.addEventListener('mousemove', checkInitialMousePosition);
 }
@@ -124,28 +114,28 @@ function initializeApp() {
 function setupEventListeners() {
     // 文件选择事件
     fileInput.addEventListener('change', handleFileSelect);
-    
+
     // 防止表单默认提交行为
     uploadForm.addEventListener('submit', (e) => {
         e.preventDefault();
         return false;
     });
-    
+
     // 渠道选择事件 - 保存用户选择
     channelSelect.addEventListener('change', (e) => {
         saveSelectedChannel(e.target.value);
     });
-    
+
     // 拖放区域事件
     dropArea.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropArea.classList.add('dragover');
     });
-    
+
     dropArea.addEventListener('dragleave', () => {
         dropArea.classList.remove('dragover');
     });
-    
+
     dropArea.addEventListener('drop', (e) => {
         e.preventDefault();
         dropArea.classList.remove('dragover');
@@ -153,27 +143,27 @@ function setupEventListeners() {
             handleFiles(e.dataTransfer.files);
         }
     });
-    
+
     // 鼠标进入上传区域
     dropArea.addEventListener('mouseenter', () => {
         isMouseOverDropArea = true;
     });
-    
+
     // 鼠标离开上传区域
     dropArea.addEventListener('mouseleave', () => {
         isMouseOverDropArea = false;
     });
-    
+
     // 剪贴板粘贴事件 - 全局监听粘贴事件，但仅在鼠标悬停在上传区域时处理
     document.addEventListener('paste', (e) => {
         // 只有在上传区域可见且鼠标在上传区域内时才处理粘贴
         if (dropArea.hidden || !isMouseOverDropArea) {
             return;
         }
-        
+
         const items = e.clipboardData.items;
         let imageFile = null;
-        
+
         // 遍历粘贴的内容
         for (let i = 0; i < items.length; i++) {
             // 如果是图片类型
@@ -182,26 +172,26 @@ function setupEventListeners() {
                 break;
             }
         }
-        
+
         // 如果找到图片，处理上传
         if (imageFile) {
             e.preventDefault(); // 阻止默认粘贴行为
             handleFiles([imageFile]);
-            
+
             // 显示粘贴上传提示
             showToast('已从剪贴板获取图片，正在上传...');
         }
     });
-    
+
     // 阻止渠道选择器事件冒泡
     document.querySelector('.channel-selector').addEventListener('click', (e) => {
         e.stopPropagation();
     });
-    
+
     // 图片链接上传按钮 - 不再需要阻止事件冒泡
     if (urlUploadBtn) {
         urlUploadBtn.addEventListener('click', handleUrlUpload);
-        
+
         // 支持在输入框中按Enter键提交
         imageUrlInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -210,20 +200,20 @@ function setupEventListeners() {
             }
         });
     }
-    
+
     // 一键粘贴按钮
     if (pasteUrlBtn) {
         pasteUrlBtn.addEventListener('click', (e) => {
             handlePasteUrl(e);
         });
     }
-    
+
     // 点击上传区域选择文件 - 改为只在标签上触发
     document.querySelector('.file-label').addEventListener('click', (e) => {
         // 阻止事件冒泡，防止触发dropArea的点击事件
         e.stopPropagation();
     });
-    
+
     // 点击整个区域也可以选择文件，但通过标记防止重复触发
     let isSelecting = false;
     dropArea.addEventListener('click', (e) => {
@@ -237,19 +227,19 @@ function setupEventListeners() {
             }, 500);
         }
     });
-    
+
     // 上传成功后继续上传按钮
     uploadAnotherBtn.addEventListener('click', resetUploadForm);
-    
+
     // 复制按钮
     copyUrlBtn.addEventListener('click', () => {
         copyText(imageUrl, '图片链接已复制');
     });
-    
+
     copyHtmlBtn.addEventListener('click', () => {
         copyText(htmlCode, 'HTML代码已复制');
     });
-    
+
     copyMdBtn.addEventListener('click', () => {
         copyText(markdownCode, 'Markdown代码已复制');
     });
@@ -283,19 +273,19 @@ function handleFiles(files) {
     if (isUploading) {
         return;
     }
-    
+
     const file = files[0]; // 只处理第一个文件
     if (!file) {
         return;
     }
-    
+
     // 验证文件类型
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
     if (!validTypes.includes(file.type)) {
         showToast('请选择支持的图片格式：JPG, PNG, GIF, BMP, WEBP', 'error');
         return;
     }
-    
+
     // 验证文件大小
     const sizeLimit = getChannelSizeLimit();
     if (sizeLimit) {
@@ -305,26 +295,26 @@ function handleFiles(files) {
             return;
         }
     }
-    
+
     // 标记上传状态
     isUploading = true;
-    
+
     // 显示进度条
     uploadProgress.hidden = false;
     progressBarInner.style.width = '0%';
     progressPercentage.textContent = '0%';
-    
+
     // 获取选择的渠道
     const selectedChannel = channelSelect.value;
-    
+
     // 创建FormData
     const formData = new FormData();
     formData.append('file', file);
     formData.append('channel', selectedChannel);
-    
+
     // 发送上传请求
     const xhr = new XMLHttpRequest();
-    
+
     // 上传进度事件
     xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
@@ -333,14 +323,14 @@ function handleFiles(files) {
             progressPercentage.textContent = `${percentComplete}%`;
         }
     });
-    
+
     // 上传完成事件
     xhr.addEventListener('load', () => {
         // 重置上传状态
         isUploading = false;
         uploadProgress.hidden = true;
         fileInput.value = '';
-        
+
         // 解析响应的通用函数
         const parseErrorMessage = (responseText, status, statusText) => {
             // 常见HTTP状态码的友好提示
@@ -355,7 +345,7 @@ function handleFiles(files) {
                 503: '服务暂时不可用',
                 504: '网关超时'
             };
-            
+
             // 先尝试解析JSON响应
             if (responseText) {
                 try {
@@ -367,20 +357,20 @@ function handleFiles(files) {
                     // 不是JSON格式，继续处理
                 }
             }
-            
+
             // 使用状态码对应的友好提示
             if (statusMessages[status]) {
                 return statusMessages[status];
             }
-            
+
             // 使用statusText
             if (statusText && statusText !== 'OK') {
                 return statusText;
             }
-            
+
             return `HTTP错误 ${status}`;
         };
-        
+
         if (xhr.status === 200) {
             try {
                 const response = JSON.parse(xhr.responseText);
@@ -394,7 +384,6 @@ function handleFiles(files) {
                 showToast('上传失败: 服务器响应格式错误', 'error');
             }
         } else if (xhr.status === 401) {
-            localStorage.removeItem('verificationToken');
             redirectToVerify();
             showToast('验证已过期，请重新验证', 'error');
         } else if (xhr.status === 413) {
@@ -405,7 +394,7 @@ function handleFiles(files) {
             showToast(`上传失败: ${errorMsg}`, 'error');
         }
     });
-    
+
     // 上传错误事件（网络错误等）
     xhr.addEventListener('error', () => {
         isUploading = false;
@@ -414,7 +403,7 @@ function handleFiles(files) {
         console.error('上传网络错误');
         showToast('上传失败: 网络连接错误，请检查网络', 'error');
     });
-    
+
     // 上传超时事件
     xhr.addEventListener('timeout', () => {
         isUploading = false;
@@ -423,7 +412,7 @@ function handleFiles(files) {
         console.error('上传超时');
         showToast('上传失败: 请求超时，请重试', 'error');
     });
-    
+
     // 上传中断事件
     xhr.addEventListener('abort', () => {
         isUploading = false;
@@ -431,19 +420,16 @@ function handleFiles(files) {
         fileInput.value = '';
         showToast('上传已取消', 'warning');
     });
-    
+
     // 发送请求
     xhr.open('POST', '/upload');
-    
+
     // 设置超时时间（60秒）
     xhr.timeout = 60000;
-    
-    // 添加验证令牌
-    const token = localStorage.getItem('verificationToken');
-    if (token) {
-        xhr.setRequestHeader('X-Verification-Token', token);
-    }
-    
+
+    // 使用 Cookie 认证（浏览器自动携带）
+    xhr.withCredentials = true;
+
     xhr.send(formData);
 }
 
@@ -453,30 +439,30 @@ function handleUploadSuccess(result, originalFileName) {
     const width = result.width || 0;
     const height = result.height || 0;
     const channelName = document.getElementById('channel-select').options[document.getElementById('channel-select').selectedIndex].text;
-    
+
     // 显示结果区域
     resultImg.src = fileUrl;
     imageUrl.value = fileUrl;
     htmlCode.value = `<img src="${fileUrl}" alt="${originalFileName}" />`;
     markdownCode.value = `![${originalFileName}](${fileUrl})`;
     fileName.textContent = originalFileName;
-    
+
     if (width && height) {
         imageSize.textContent = `${width} × ${height}`;
     } else {
         imageSize.textContent = '未知';
     }
-    
+
     uploadChannel.textContent = channelName || '未知';
-    
+
     // 隐藏上传区域，显示结果区域
     dropArea.hidden = true;
     urlUploadContainer.hidden = true; // 隐藏链接上传区域
     resultSection.hidden = false;
-    
+
     // 将结果区域滚动到可视区域
     resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    
+
     // 显示上传成功提示
     showToast('上传成功！', 'success');
 }
@@ -500,7 +486,7 @@ function copyToClipboard(text, successMessage) {
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
-    
+
     let success = false;
     try {
         // 尝试使用document.execCommand API (兼容性更好)
@@ -508,7 +494,7 @@ function copyToClipboard(text, successMessage) {
         if (success) {
             showToast(successMessage || '复制成功', 'success');
         } else {
-        //     如果execCommand失败，尝试使用Clipboard API
+            //     如果execCommand失败，尝试使用Clipboard API
             navigator.clipboard.writeText(text)
                 .then(() => showToast(successMessage || '复制成功', 'success'))
                 .catch(() => showToast('复制失败', 'error'));
@@ -517,7 +503,7 @@ function copyToClipboard(text, successMessage) {
         console.error('复制失败:', err);
         showToast('复制失败', 'error');
     }
-    
+
     // 移除临时元素
     document.body.removeChild(textArea);
 }
@@ -532,18 +518,18 @@ function copyText(input, successMessage) {
 function showToast(message, type = 'info') {
     toast.textContent = message;
     toast.hidden = false;
-    
+
     // 移除之前的类型样式
     toast.classList.remove('toast-error', 'toast-warning', 'toast-success', 'toast-info');
-    
+
     // 添加新的类型样式
     if (type) {
         toast.classList.add(`toast-${type}`);
     }
-    
+
     // 根据类型设置显示时间
     const duration = type === 'error' ? 4000 : (type === 'warning' ? 3000 : 2000);
-    
+
     setTimeout(() => {
         toast.style.opacity = '0';
         setTimeout(() => {
@@ -572,27 +558,27 @@ function handleUrlUpload() {
     if (isUploading) {
         return;
     }
-    
+
     const url = imageUrlInput.value.trim();
     if (!url) {
         showToast('请输入图片链接', 'warning');
         return;
     }
-    
+
     // 标记上传状态
     isUploading = true;
-    
+
     // 显示进度条
     uploadProgress.hidden = false;
     progressBarInner.style.width = '0%';
     progressPercentage.textContent = '0%';
-    
+
     // 获取选择的渠道
     const selectedChannel = channelSelect.value;
-    
+
     // 发送请求到服务器
     const xhr = new XMLHttpRequest();
-    
+
     // 上传进度事件
     xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
@@ -601,13 +587,13 @@ function handleUrlUpload() {
             progressPercentage.textContent = `${percentComplete}%`;
         }
     });
-    
+
     // 上传完成事件
     xhr.addEventListener('load', () => {
         // 重置上传状态
         isUploading = false;
         uploadProgress.hidden = true;
-        
+
         // 解析响应的通用函数
         const parseErrorMessage = (responseText, status, statusText) => {
             const statusMessages = {
@@ -621,27 +607,27 @@ function handleUrlUpload() {
                 503: '服务暂时不可用',
                 504: '网关超时'
             };
-            
+
             if (responseText) {
                 try {
                     const json = JSON.parse(responseText);
                     if (json && json.message) {
                         return json.message;
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
-            
+
             if (statusMessages[status]) {
                 return statusMessages[status];
             }
-            
+
             if (statusText && statusText !== 'OK') {
                 return statusText;
             }
-            
+
             return `HTTP错误 ${status}`;
         };
-        
+
         if (xhr.status === 200) {
             try {
                 const response = JSON.parse(xhr.responseText);
@@ -657,7 +643,6 @@ function handleUrlUpload() {
                 showToast('上传失败: 服务器响应格式错误', 'error');
             }
         } else if (xhr.status === 401) {
-            localStorage.removeItem('verificationToken');
             redirectToVerify();
             showToast('验证已过期，请重新验证', 'error');
         } else if (xhr.status === 413) {
@@ -667,7 +652,7 @@ function handleUrlUpload() {
             showToast(`上传失败: ${errorMsg}`, 'error');
         }
     });
-    
+
     // 上传错误事件
     xhr.addEventListener('error', () => {
         isUploading = false;
@@ -675,7 +660,7 @@ function handleUrlUpload() {
         console.error('URL上传网络错误');
         showToast('上传失败: 网络连接错误，请检查网络', 'error');
     });
-    
+
     // 上传超时事件
     xhr.addEventListener('timeout', () => {
         isUploading = false;
@@ -683,32 +668,29 @@ function handleUrlUpload() {
         console.error('URL上传超时');
         showToast('上传失败: 请求超时，请重试', 'error');
     });
-    
+
     // 上传中断事件
     xhr.addEventListener('abort', () => {
         isUploading = false;
         uploadProgress.hidden = true;
         showToast('上传已取消', 'warning');
     });
-    
+
     // 发送请求
     xhr.open('POST', '/upload_from_url');
-    
+
     // 设置超时时间（90秒，URL上传需要先下载再上传）
     xhr.timeout = 90000;
-    
-    // 添加验证令牌
-    const token = localStorage.getItem('verificationToken');
-    if (token) {
-        xhr.setRequestHeader('X-Verification-Token', token);
-    }
-    
+
+    // 使用 Cookie 认证（浏览器自动携带）
+    xhr.withCredentials = true;
+
     xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.send(JSON.stringify({
         url: url,
         channel: selectedChannel
     }));
-    
+
     showToast('正在从链接获取图片...');
 }
 
@@ -736,14 +718,14 @@ function handlePasteUrl(e) {
         // 浏览器不支持 Clipboard API，使用降级方案
         tryExecCommand();
     }
-    
+
     // 方法2: 降级方案 - 使用 document.execCommand（兼容老浏览器）
     function tryExecCommand() {
         // 创建 paste 事件监听器来捕获粘贴内容
         const pasteHandler = (pasteEvent) => {
             pasteEvent.preventDefault();
             pasteEvent.stopPropagation();
-            
+
             // 获取粘贴的内容
             let pastedText = '';
             if (pasteEvent.clipboardData && pasteEvent.clipboardData.getData) {
@@ -752,7 +734,7 @@ function handlePasteUrl(e) {
                 // IE 浏览器
                 pastedText = window.clipboardData.getData('Text');
             }
-            
+
             if (pastedText && pastedText.trim()) {
                 imageUrlInput.value = pastedText.trim();
                 imageUrlInput.focus();
@@ -761,18 +743,18 @@ function handlePasteUrl(e) {
             } else {
                 showToast('剪贴板为空', 'warning');
             }
-            
+
             // 移除事件监听器
             imageUrlInput.removeEventListener('paste', pasteHandler);
         };
-        
+
         // 添加 paste 事件监听器
         imageUrlInput.addEventListener('paste', pasteHandler, { once: true });
-        
+
         // 让输入框获得焦点并选中内容
         imageUrlInput.focus();
         imageUrlInput.select();
-        
+
         // 尝试执行粘贴命令（在用户交互事件中通常不需要权限）
         try {
             const success = document.execCommand('paste');
