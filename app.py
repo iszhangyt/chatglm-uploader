@@ -12,6 +12,8 @@ import secrets
 import tempfile
 import mimetypes
 from urllib.parse import urlparse
+import ipaddress
+import socket
 import re
 from PIL import Image, UnidentifiedImageError
 import random
@@ -526,6 +528,86 @@ def get_random_image(channel=None, orientation=None, aspect_ratio_threshold=1.2)
         return None
 
 
+def is_safe_url(url: str) -> tuple:
+    """
+    验证 URL 是否安全，防止 SSRF 攻击
+    
+    检查项目：
+    - 协议必须是 http 或 https
+    - 禁止访问本地地址 (localhost, 127.0.0.1, ::1 等)
+    - 禁止访问内网地址 (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
+    - 禁止访问云服务元数据地址 (169.254.169.254)
+    - 禁止访问链路本地地址
+    
+    参数:
+        url: 待验证的 URL
+        
+    返回:
+        tuple: (是否安全, 错误信息) - 安全返回 (True, "")，不安全返回 (False, "错误原因")
+    """
+    try:
+        parsed = urlparse(url)
+        
+        # 检查协议
+        if parsed.scheme not in ('http', 'https'):
+            return False, "仅支持 HTTP/HTTPS 协议"
+        
+        hostname = parsed.hostname
+        if not hostname:
+            return False, "无效的 URL"
+        
+        # 禁止的主机名列表
+        blocked_hosts = [
+            'localhost',
+            'metadata.google.internal',      # GCP 元数据服务
+            'metadata.azure.com',            # Azure 元数据服务  
+            'instance-data',                 # AWS 元数据别名
+        ]
+        
+        hostname_lower = hostname.lower()
+        if hostname_lower in blocked_hosts:
+            return False, "禁止访问本地或元数据服务"
+        
+        # 尝试解析 IP 地址
+        try:
+            # 先检查是否直接是 IP 地址
+            ip = ipaddress.ip_address(hostname)
+        except ValueError:
+            # 不是 IP 地址，是域名，需要 DNS 解析
+            try:
+                resolved_ip = socket.gethostbyname(hostname)
+                ip = ipaddress.ip_address(resolved_ip)
+            except socket.gaierror:
+                # DNS 解析失败，可能是无效域名,允许通过让后续请求处理错误
+                return True, ""
+        
+        # 检查是否为不安全的 IP 地址
+        # is_private: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+        # is_loopback: 127.0.0.0/8, ::1
+        # is_reserved: 保留地址
+        # is_link_local: 169.254.0.0/16 (包含 AWS 元数据 169.254.169.254)
+        if ip.is_private:
+            return False, "禁止访问内网地址"
+        
+        if ip.is_loopback:
+            return False, "禁止访问本地回环地址"
+        
+        if ip.is_link_local:
+            return False, "禁止访问链路本地地址"
+        
+        if ip.is_reserved:
+            return False, "禁止访问保留地址"
+        
+        # 特别检查云服务元数据 IP (虽然 is_link_local 已包含，但明确检查更清晰)
+        if str(ip) == '169.254.169.254':
+            return False, "禁止访问云服务元数据"
+        
+        return True, ""
+        
+    except Exception as e:
+        logger.warning(f"URL 安全验证异常: {str(e)}")
+        return False, f"URL 验证失败: 请检查 URL 格式"
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -734,6 +816,12 @@ def upload_from_url():
     if not url.startswith(('http://', 'https://')):
         logger.warning(f"无效的URL格式: {url}")
         return jsonify({'status': 1, 'message': '无效的URL格式，必须以http://或https://开头'}), 400
+    
+    # SSRF 防护：验证 URL 是否安全
+    is_safe, error_msg = is_safe_url(url)
+    if not is_safe:
+        logger.warning(f"URL安全验证失败: {url}, 原因: {error_msg}")
+        return jsonify({'status': 1, 'message': error_msg}), 400
     
     channel = data.get('channel', channel_manager.get_default_channel_name())
     logger.info(f"开始URL上传: URL={url[:100]}{'...' if len(url) > 100 else ''}, 渠道={channel}")
