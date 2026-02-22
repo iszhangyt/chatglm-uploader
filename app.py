@@ -849,13 +849,9 @@ def upload_from_url():
     logger.info(f"开始URL上传: URL={url[:100]}{'...' if len(url) > 100 else ''}, 渠道={channel}")
     
     try:
-        # 配置代理（如果需要）
         proxies = None
-        # 如果需要使用代理，可以取消下面注释并修改代理地址
-        # proxies = {
-        #     'http': 'http://your-proxy:port',
-        #     'https': 'http://your-proxy:port'
-        # }
+        if cfg['proxy']:
+            proxies = {'http': cfg['proxy'], 'https': cfg['proxy']}
         
         # 根据域名设置特定的请求头
         headers, domain, base_domain = generate_request_headers(url)

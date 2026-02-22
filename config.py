@@ -27,6 +27,7 @@ DEFAULTS = {
     'channel': {
         'default': 'miyoushe',
     },
+    'proxy': '',
     'miyoushe': {
         'api_type': 'web',
         'cookie': '',

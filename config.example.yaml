@@ -20,6 +20,9 @@ auth:
 log:
   level: "INFO"          # 日志级别: DEBUG, INFO, WARNING, ERROR
 
+# 代理配置（留空表示不使用代理），例如 "http://127.0.0.1:7890"
+proxy: ""
+
 # 上传渠道配置
 channel:
   default: "miyoushe"    # 默认上传渠道: miyoushe, chatglm, jd
