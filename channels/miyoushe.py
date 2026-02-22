@@ -1,9 +1,12 @@
 """
 米游社图床上传渠道
-基于 miyoushe.com 的图片上传 API 实现
+基于 miyoushe.com 的图片上传 API 实现，支持网页端(web)和App端(app)两种模式
 """
 import hashlib
 import os
+import time
+import random
+import string
 import requests
 from .base import BaseChannel
 
@@ -15,10 +18,14 @@ class MiyousheChannel(BaseChannel):
     MAX_FILE_SIZE = 20 * 1024 * 1024
     
     # API 端点
-    GET_UPLOAD_PARAMS_URL = "https://bbs-api.miyoushe.com/apihub/wapi/getUploadParams"
+    WEB_API_URL = "https://bbs-api.miyoushe.com/apihub/wapi/getUploadParams"
+    APP_API_URL = "https://bbs-api.miyoushe.com/apihub/sapi/getUploadParams"
     
-    # 默认请求头
-    DEFAULT_HEADERS = {
+    # App 端 DS 签名盐值
+    DS_SALT = "JwYDpKvLj6MrMqqYU6jTKF17KNO2PXoS"
+    
+    # 网页端默认请求头
+    WEB_HEADERS = {
         "accept": "*/*",
         "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
         "cache-control": "no-cache",
@@ -47,14 +54,46 @@ class MiyousheChannel(BaseChannel):
         初始化上传器
         
         Args:
-            cookie: 米游社登录 Cookie，如果不传则从环境变量 MIYOUSHE_COOKIE 读取
+            cookie: 米游社登录 Cookie，如果不传则从环境变量读取
+        
+        环境变量:
+            MIYOUSHE_COOKIE: 网页端 Cookie
+            MIYOUSHE_APP_COOKIE: App 端 Cookie
+            MIYOUSHE_API_TYPE: API 类型，"web"(默认) 或 "app"
+        
+        当 MIYOUSHE_API_TYPE=app 时自动使用 MIYOUSHE_APP_COOKIE，
+        否则使用 MIYOUSHE_COOKIE。两个 Cookie 不通用。
         """
         super().__init__()
-        self.cookie = cookie or os.environ.get('MIYOUSHE_COOKIE', '')
+        self.api_type = os.environ.get('MIYOUSHE_API_TYPE', 'web').lower()
+        if self.api_type == "app":
+            self.cookie = cookie or os.environ.get('MIYOUSHE_APP_COOKIE', '')
+            self._init_device_info()
+        else:
+            self.cookie = cookie or os.environ.get('MIYOUSHE_COOKIE', '')
     
     def get_channel_name(self):
         """获取渠道名称"""
         return "miyoushe"
+    
+    def _init_device_info(self):
+        """初始化 App 端伪装设备信息"""
+        self.device_id = "8324a729-7d71-352a-97af-6b1c6689aba9"
+        self.device_fp = "38d8165c1b88a"
+    
+    def _generate_ds(self, query: str = "", body: str = "") -> str:
+        """
+        生成 App 端 DS 签名
+        
+        算法: ds = "{t},{r},{md5(salt={salt}&t={t}&r={r}&b={body}&q={query})}"
+        其中 query 需要按 key 字母序排列
+        """
+        t = int(time.time())
+        r = ''.join(random.choices(string.ascii_lowercase, k=6))
+        check = hashlib.md5(
+            f"salt={self.DS_SALT}&t={t}&r={r}&b={body}&q={query}".encode()
+        ).hexdigest()
+        return f"{t},{r},{check}"
     
     @staticmethod
     def _calculate_md5(file_path: str) -> str:
@@ -83,9 +122,15 @@ class MiyousheChannel(BaseChannel):
         return cookies
     
     def _get_upload_params(self, md5: str, ext: str):
-        """获取 OSS 上传参数"""
+        """获取 OSS 上传参数，根据 api_type 分发到对应实现"""
+        if self.api_type == "app":
+            return self._get_upload_params_app(md5, ext)
+        return self._get_upload_params_web(md5, ext)
+    
+    def _get_upload_params_web(self, md5: str, ext: str):
+        """网页端获取 OSS 上传参数 (POST wapi)"""
         headers = {
-            **self.DEFAULT_HEADERS,
+            **self.WEB_HEADERS,
             "content-type": "application/json",
             "referer": "https://www.miyoushe.com/",
         }
@@ -103,9 +148,59 @@ class MiyousheChannel(BaseChannel):
         
         try:
             response = requests.post(
-                self.GET_UPLOAD_PARAMS_URL,
+                self.WEB_API_URL,
                 headers=headers,
                 json=payload,
+                cookies=self._parse_cookie(),
+                timeout=30
+            )
+            result = response.json()
+            
+            if result.get("retcode") == 0:
+                return result.get("data")
+            else:
+                self.log_error(f"获取上传参数失败: {result.get('message', '未知错误')}")
+                return None
+                
+        except Exception as e:
+            self.log_error(f"请求上传参数异常: {e}")
+            return None
+    
+    def _get_upload_params_app(self, md5: str, ext: str):
+        """App 端获取 OSS 上传参数 (GET sapi)"""
+        query_params = {
+            "md5": md5,
+            "ext": ext,
+            "support_content_type": "1",
+            "upload_source": "1",
+        }
+        
+        sorted_query = "&".join(
+            f"{k}={v}" for k, v in sorted(query_params.items())
+        )
+        
+        headers = {
+            "user-agent": "okhttp/4.9.3",
+            "referer": "https://app.mihoyo.com",
+            "ds": self._generate_ds(sorted_query),
+            "x-rpc-client_type": "2",
+            "x-rpc-app_version": "2.102.1",
+            "x-rpc-sys_version": "12",
+            "x-rpc-channel": "ys",
+            "x-rpc-device_id": self.device_id,
+            "x-rpc-device_fp": self.device_fp,
+            "x-rpc-device_name": "OPPO PHY110",
+            "x-rpc-device_model": "PHY110",
+            "x-rpc-h265_supported": "1",
+            "x-rpc-verify_key": "bll8iq97cem8",
+            "x-rpc-csm_source": "home",
+        }
+        
+        try:
+            response = requests.get(
+                self.APP_API_URL,
+                headers=headers,
+                params=query_params,
                 cookies=self._parse_cookie(),
                 timeout=30
             )
@@ -162,25 +257,35 @@ class MiyousheChannel(BaseChannel):
         
         form_data["file"] = (file_name, file_content, content_type)
         
-        headers = {
-            "accept": "*/*",
-            "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-            "cache-control": "no-cache",
-            "pragma": "no-cache",
-            "sec-ch-ua": '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "cross-site",
-            "referer": "https://www.miyoushe.com/",
-        }
+        if self.api_type == "app":
+            headers = {
+                "ds": self._generate_ds(),
+                "x-rpc-csm_source": "home",
+                "user-agent": "okhttp/4.9.3",
+            }
+        else:
+            headers = {
+                "accept": "*/*",
+                "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+                "cache-control": "no-cache",
+                "pragma": "no-cache",
+                "sec-ch-ua": '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+                "sec-ch-ua-mobile": "?0",
+                "sec-ch-ua-platform": '"Windows"',
+                "sec-fetch-dest": "empty",
+                "sec-fetch-mode": "cors",
+                "sec-fetch-site": "cross-site",
+                "referer": "https://www.miyoushe.com/",
+            }
+        
+        cookies = self._parse_cookie() if self.api_type == "app" else None
         
         try:
             response = requests.post(
                 host,
                 headers=headers,
                 files=form_data,
+                cookies=cookies,
                 timeout=60
             )
             result = response.json()
@@ -207,7 +312,8 @@ class MiyousheChannel(BaseChannel):
             dict or None - 成功返回 {'file_url': str, 'width': int, 'height': int}，失败返回None
         """
         if not self.cookie:
-            self.log_error("未配置米游社 Cookie，请设置环境变量 MIYOUSHE_COOKIE")
+            env_var = 'MIYOUSHE_APP_COOKIE' if self.api_type == 'app' else 'MIYOUSHE_COOKIE'
+            self.log_error(f"未配置米游社 Cookie，请设置环境变量 {env_var}")
             return None
         
         ext = self._get_file_extension(temp_file_path)
