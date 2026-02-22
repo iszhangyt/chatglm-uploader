@@ -6,16 +6,15 @@ from .base import BaseChannel
 from .chatglm import ChatGLMChannel
 from .jd import JDChannel
 from .miyoushe import MiyousheChannel
+from config import get_config
 
 
 class ChannelManager:
     """上传渠道管理器"""
     
-    # 默认渠道名称
-    DEFAULT_CHANNEL = "miyoushe"
-    
     def __init__(self):
         self.channels = {}
+        self.DEFAULT_CHANNEL = get_config()['channel']['default']
         self._register_default_channels()
     
     def _register_default_channels(self):

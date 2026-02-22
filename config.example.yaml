@@ -1,0 +1,31 @@
+# ============================================================
+# 图床上传服务配置文件
+# 复制本文件为 config.yaml 并按需修改
+# 未配置的项将使用默认值
+# ============================================================
+
+# 服务配置
+server:
+  host: "0.0.0.0"       # 监听地址
+  port: 5500             # 监听端口
+  debug: false           # 调试模式，生产环境务必设为 false
+
+# 认证配置
+auth:
+  default_code: "admin123"    # 初始验证码（仅首次初始化时生效，之后修改无效）
+  token_expiry_days: 30       # 登录 Token 有效期（天）
+  cookie_secure: false        # Cookie 是否仅通过 HTTPS 传输，生产环境建议设为 true
+
+# 日志配置
+log:
+  level: "INFO"          # 日志级别: DEBUG, INFO, WARNING, ERROR
+
+# 上传渠道配置
+channel:
+  default: "miyoushe"    # 默认上传渠道: miyoushe, chatglm, jd
+
+# 米游社渠道配置
+miyoushe:
+  api_type: "web"        # API 类型: "web" 使用网页端接口, "app" 使用 App 端接口
+  cookie: ""             # 网页端 Cookie（api_type 为 web 时使用）
+  app_cookie: ""         # App 端 Cookie（api_type 为 app 时使用，与网页端不通用）

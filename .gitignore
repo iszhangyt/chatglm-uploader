@@ -1,6 +1,7 @@
 .venv/
 data/*
 docs/*
+config.yaml
 *.pyc
 *.pyo
 *.pyd

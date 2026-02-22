@@ -9,6 +9,7 @@ import random
 import string
 import requests
 from .base import BaseChannel
+from config import get_config
 
 
 class MiyousheChannel(BaseChannel):
@@ -49,28 +50,23 @@ class MiyousheChannel(BaseChannel):
         "bmp": "image/bmp",
     }
     
-    def __init__(self, cookie: str = None):
+    def __init__(self):
         """
         初始化上传器
         
-        Args:
-            cookie: 米游社登录 Cookie，如果不传则从环境变量读取
-        
-        环境变量:
-            MIYOUSHE_COOKIE: 网页端 Cookie
-            MIYOUSHE_APP_COOKIE: App 端 Cookie
-            MIYOUSHE_API_TYPE: API 类型，"web"(默认) 或 "app"
-        
-        当 MIYOUSHE_API_TYPE=app 时自动使用 MIYOUSHE_APP_COOKIE，
-        否则使用 MIYOUSHE_COOKIE。两个 Cookie 不通用。
+        配置项从 config.yaml 的 miyoushe 节读取:
+            api_type: "web"(默认) 或 "app"
+            cookie: 网页端 Cookie（api_type 为 web 时使用）
+            app_cookie: App 端 Cookie（api_type 为 app 时使用，与网页端不通用）
         """
         super().__init__()
-        self.api_type = os.environ.get('MIYOUSHE_API_TYPE', 'web').lower()
+        cfg = get_config()['miyoushe']
+        self.api_type = cfg.get('api_type', 'web').lower()
         if self.api_type == "app":
-            self.cookie = cookie or os.environ.get('MIYOUSHE_APP_COOKIE', '')
+            self.cookie = cfg.get('app_cookie', '')
             self._init_device_info()
         else:
-            self.cookie = cookie or os.environ.get('MIYOUSHE_COOKIE', '')
+            self.cookie = cfg.get('cookie', '')
     
     def get_channel_name(self):
         """获取渠道名称"""
@@ -312,8 +308,8 @@ class MiyousheChannel(BaseChannel):
             dict or None - 成功返回 {'file_url': str, 'width': int, 'height': int}，失败返回None
         """
         if not self.cookie:
-            env_var = 'MIYOUSHE_APP_COOKIE' if self.api_type == 'app' else 'MIYOUSHE_COOKIE'
-            self.log_error(f"未配置米游社 Cookie，请设置环境变量 {env_var}")
+            key = 'app_cookie' if self.api_type == 'app' else 'cookie'
+            self.log_error(f"未配置米游社 Cookie，请在 config.yaml 中设置 miyoushe.{key}")
             return None
         
         ext = self._get_file_extension(temp_file_path)

@@ -18,9 +18,12 @@ import re
 from PIL import Image, UnidentifiedImageError
 import random
 import logging
+from config import get_config
 from channels import channel_manager
 import sqlite3
 from contextlib import contextmanager
+
+cfg = get_config()
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -36,7 +39,7 @@ OLD_VERIFICATION_JSON = os.path.join(DATA_DIR, 'verification.json')
 
 # 配置日志
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, cfg['log']['level'].upper(), logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(LOG_FILE),
@@ -266,8 +269,7 @@ def init_verification_config():
     if config:
         return config
     
-    # 创建默认验证码和盐值
-    default_code = "admin123"
+    default_code = cfg['auth']['default_code']
     default_salt = secrets.token_hex(16)
     
     # 计算哈希值
@@ -658,20 +660,19 @@ def verify():
     # 生成新的token
     token = generate_token()
     
-    # 保存token到数据库
     current_time = time.time()
-    expires_at = current_time + 30 * 24 * 60 * 60  # 30天有效期
+    token_expiry_seconds = cfg['auth']['token_expiry_days'] * 24 * 60 * 60
+    expires_at = current_time + token_expiry_seconds
     add_valid_token(token, current_time, expires_at)
     
-    # 创建响应并设置 HttpOnly Cookie
     response = make_response(jsonify({'status': 0, 'message': '验证成功'}))
     response.set_cookie(
         'auth_token',
         token,
-        httponly=True,           # JavaScript 无法读取
-        samesite='Strict',       # 防止 CSRF
-        max_age=30*24*60*60,     # 30天有效期
-        secure=False,            # 开发环境不强制 HTTPS，生产环境应设为 True
+        httponly=True,
+        samesite='Strict',
+        max_age=token_expiry_seconds,
+        secure=cfg['auth']['cookie_secure'],
         path='/'
     )
     return response
@@ -1355,4 +1356,10 @@ def generate_request_headers(url, use_smart_referer=True):
     return headers, domain, base_domain
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5500) 
+    from config import CONFIG_PATH
+    app.run(
+        debug=cfg['server']['debug'],
+        host=cfg['server']['host'],
+        port=cfg['server']['port'],
+        extra_files=[CONFIG_PATH]
+    )
