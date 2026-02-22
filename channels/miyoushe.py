@@ -4,9 +4,6 @@
 """
 import hashlib
 import os
-import time
-import random
-import string
 import requests
 from .base import BaseChannel
 from config import get_config
@@ -21,9 +18,6 @@ class MiyousheChannel(BaseChannel):
     # API 端点
     WEB_API_URL = "https://bbs-api.miyoushe.com/apihub/wapi/getUploadParams"
     APP_API_URL = "https://bbs-api.miyoushe.com/apihub/sapi/getUploadParams"
-    
-    # App 端 DS 签名盐值
-    DS_SALT = "JwYDpKvLj6MrMqqYU6jTKF17KNO2PXoS"
     
     # 网页端默认请求头
     WEB_HEADERS = {
@@ -76,20 +70,6 @@ class MiyousheChannel(BaseChannel):
         """初始化 App 端伪装设备信息"""
         self.device_id = "8324a729-7d71-352a-97af-6b1c6689aba9"
         self.device_fp = "38d8165c1b88a"
-    
-    def _generate_ds(self, query: str = "", body: str = "") -> str:
-        """
-        生成 App 端 DS 签名
-        
-        算法: ds = "{t},{r},{md5(salt={salt}&t={t}&r={r}&b={body}&q={query})}"
-        其中 query 需要按 key 字母序排列
-        """
-        t = int(time.time())
-        r = ''.join(random.choices(string.ascii_lowercase, k=6))
-        check = hashlib.md5(
-            f"salt={self.DS_SALT}&t={t}&r={r}&b={body}&q={query}".encode()
-        ).hexdigest()
-        return f"{t},{r},{check}"
     
     @staticmethod
     def _calculate_md5(file_path: str) -> str:
@@ -171,14 +151,9 @@ class MiyousheChannel(BaseChannel):
             "upload_source": "1",
         }
         
-        sorted_query = "&".join(
-            f"{k}={v}" for k, v in sorted(query_params.items())
-        )
-        
         headers = {
             "user-agent": "okhttp/4.9.3",
             "referer": "https://app.mihoyo.com",
-            "ds": self._generate_ds(sorted_query),
             "x-rpc-client_type": "2",
             "x-rpc-app_version": "2.102.1",
             "x-rpc-sys_version": "12",
@@ -255,7 +230,6 @@ class MiyousheChannel(BaseChannel):
         
         if self.api_type == "app":
             headers = {
-                "ds": self._generate_ds(),
                 "x-rpc-csm_source": "home",
                 "user-agent": "okhttp/4.9.3",
             }
