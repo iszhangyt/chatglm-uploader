@@ -771,11 +771,15 @@ def upload_image():
         result = None
         
         # 根据不同的渠道进行上传
+        channel_fallback = None
         uploader = channel_manager.get_channel(channel)
         if not uploader:
             # 如果渠道不存在，使用默认渠道
+            original_channel = channel
             uploader = channel_manager.get_default_channel()
-            logger.warning(f"渠道 {channel} 不存在，使用默认渠道 {uploader.get_channel_name()}")
+            channel = uploader.get_channel_name()
+            channel_fallback = f"渠道 {original_channel} 不可用，已自动切换至 {uploader.get_display_name()}"
+            logger.warning(f"渠道 {original_channel} 不存在，使用默认渠道 {channel}")
         
         # 检查文件大小限制
         size_ok, size_error = uploader.check_file_size(temp_file_path)
@@ -816,11 +820,14 @@ def upload_image():
         }
         add_upload_history(history_item)
         
-        return jsonify({
+        response_data = {
             'status': 0,
             'message': '上传成功',
             'result': result
-        })
+        }
+        if channel_fallback:
+            response_data['warning'] = channel_fallback
+        return jsonify(response_data)
     except Exception as e:
         logger.error(f"上传异常: 文件={file.filename if 'file' in locals() else '未知'}, 错误={str(e)}", exc_info=True)
         # 确保临时文件被删除
@@ -1077,12 +1084,16 @@ def upload_from_url():
         result = None
         
         # 根据不同的渠道进行上传
+        channel_fallback = None
         try:
             uploader = channel_manager.get_channel(channel)
             if not uploader:
                 # 如果渠道不存在，使用默认渠道
+                original_channel = channel
                 uploader = channel_manager.get_default_channel()
-                logger.warning(f"渠道 {channel} 不存在，使用默认渠道 {uploader.get_channel_name()}")
+                channel = uploader.get_channel_name()
+                channel_fallback = f"渠道 {original_channel} 不可用，已自动切换至 {uploader.get_display_name()}"
+                logger.warning(f"渠道 {original_channel} 不存在，使用默认渠道 {channel}")
             
             # 检查文件大小限制
             size_ok, size_error = uploader.check_file_size(temp_file_path)
@@ -1126,7 +1137,7 @@ def upload_from_url():
             logger.error(f"保存历史记录失败: {str(e)}")
             # 不阻止返回上传成功的结果
         
-        return jsonify({
+        response_data = {
             'status': 0,
             'message': '上传成功',
             'result': {
@@ -1134,7 +1145,10 @@ def upload_from_url():
                 'width': result.get('width', 0),
                 'height': result.get('height', 0)
             }
-        })
+        }
+        if channel_fallback:
+            response_data['warning'] = channel_fallback
+        return jsonify(response_data)
     
     except Exception as e:
         logger.error(f"URL上传处理异常: URL={url[:100] if 'url' in locals() else '未知'}, 错误={str(e)}", exc_info=True)

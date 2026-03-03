@@ -375,6 +375,9 @@ function handleFiles(files) {
                 const response = JSON.parse(xhr.responseText);
                 if (response.status === 0) {
                     handleUploadSuccess(response.result, file.name);
+                    if (response.warning) {
+                        showToast(response.warning, 'warning');
+                    }
                 } else {
                     showToast(`上传失败: ${response.message || '未知错误'}`, 'error');
                 }
@@ -437,7 +440,8 @@ function handleUploadSuccess(result, originalFileName) {
     const fileUrl = result.file_url;
     const width = result.width || 0;
     const height = result.height || 0;
-    const channelName = document.getElementById('channel-select').options[document.getElementById('channel-select').selectedIndex].text;
+    const selectedOption = channelSelect.options[channelSelect.selectedIndex];
+    const channelName = selectedOption ? selectedOption.text : '未知';
 
     // 显示结果区域
     resultImg.src = fileUrl;
@@ -548,6 +552,11 @@ function restoreSelectedChannel() {
     const savedChannel = localStorage.getItem('preferredUploadChannel');
     if (savedChannel) {
         channelSelect.value = savedChannel;
+        // 如果恢复的渠道已不存在（被禁用），清除记录并回退默认
+        if (channelSelect.selectedIndex === -1) {
+            localStorage.removeItem('preferredUploadChannel');
+            channelSelect.selectedIndex = 0;
+        }
     }
 }
 
@@ -633,6 +642,9 @@ function handleUrlUpload() {
                 if (response.status === 0) {
                     const fileName = url.split('/').pop().split('?')[0] || 'image.jpg';
                     handleUploadSuccess(response.result, fileName);
+                    if (response.warning) {
+                        showToast(response.warning, 'warning');
+                    }
                     imageUrlInput.value = '';
                 } else {
                     showToast(`上传失败: ${response.message || '未知错误'}`, 'error');
