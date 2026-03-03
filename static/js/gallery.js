@@ -40,23 +40,29 @@ function fetchWithTimeout(url, options = {}, timeout = 15000) {
 }
 
 /**
- * 生成阿里云OSS缩略图URL
- * 米游社渠道的图片使用OSS图片处理生成缩略图
+ * 生成缩略图URL
+ * 米游社渠道使用阿里云OSS图片处理，小黑盒渠道使用腾讯云COS数据万象图片处理
  */
-function getOssThumbnailUrl(originalUrl, channel) {
-    // 只有米游社渠道的图片才使用OSS图片处理
-    if (channel !== 'miyoushe') {
-        return originalUrl;
-    }
-
-    // OSS图片处理参数：宽度400px，质量80%，WebP格式
-    const ossProcess = 'x-oss-process=image/resize,w_400/quality,q_80/interlace,1/format,webp';
-
-    if (originalUrl.includes('?')) {
-        return `${originalUrl}&${ossProcess}`;
-    } else {
+function getThumbnailUrl(originalUrl, channel) {
+    if (channel === 'miyoushe') {
+        // 阿里云OSS图片处理参数：宽度400px，质量80%，WebP格式
+        const ossProcess = 'x-oss-process=image/resize,w_400/quality,q_80/interlace,1/format,webp';
+        if (originalUrl.includes('?')) {
+            return `${originalUrl}&${ossProcess}`;
+        }
         return `${originalUrl}?${ossProcess}`;
     }
+
+    if (channel === 'xiaoheihe') {
+        // 腾讯云COS数据万象图片处理参数：宽度400px，质量80%，WebP格式
+        const cosProcess = 'imageMogr2/thumbnail/400x/quality/80/format/webp';
+        if (originalUrl.includes('?')) {
+            return `${originalUrl}&${cosProcess}`;
+        }
+        return `${originalUrl}?${cosProcess}`;
+    }
+
+    return originalUrl;
 }
 
 /**
@@ -300,7 +306,7 @@ function loadMoreImages() {
  * 创建画廊项
  */
 function createGalleryItem(img) {
-    const thumbnailUrl = getOssThumbnailUrl(img.file_url, img.channel);
+    const thumbnailUrl = getThumbnailUrl(img.file_url, img.channel);
 
     const item = document.createElement('div');
     item.className = 'gallery-item';

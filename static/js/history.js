@@ -298,23 +298,28 @@ function loadHistory() {
         });
 }
 
-// 生成阿里云OSS缩略图URL
-// 米游社渠道的图片存储在阿里云OSS，可以使用OSS图片处理功能生成缩略图以加快加载
-function getOssThumbnailUrl(originalUrl, channel) {
-    // 只有米游社渠道的图片才使用OSS图片处理
-    if (channel !== 'miyoushe') {
-        return originalUrl;
-    }
-
-    // OSS图片处理参数：宽度600px，质量80%
-    const ossProcess = 'x-oss-process=image/resize,s_600/quality,q_80/interlace,1/format,webp';
-
-    // 检查URL是否已包含查询参数
-    if (originalUrl.includes('?')) {
-        return `${originalUrl}&${ossProcess}`;
-    } else {
+// 生成缩略图URL
+// 米游社渠道使用阿里云OSS图片处理，小黑盒渠道使用腾讯云COS数据万象图片处理
+function getThumbnailUrl(originalUrl, channel) {
+    if (channel === 'miyoushe') {
+        // 阿里云OSS图片处理参数：宽度600px，质量80%
+        const ossProcess = 'x-oss-process=image/resize,s_600/quality,q_80/interlace,1/format,webp';
+        if (originalUrl.includes('?')) {
+            return `${originalUrl}&${ossProcess}`;
+        }
         return `${originalUrl}?${ossProcess}`;
     }
+
+    if (channel === 'xiaoheihe') {
+        // 腾讯云COS数据万象图片处理参数：宽度600px，质量80%，WebP格式
+        const cosProcess = 'imageMogr2/thumbnail/600x/quality/80/format/webp';
+        if (originalUrl.includes('?')) {
+            return `${originalUrl}&${cosProcess}`;
+        }
+        return `${originalUrl}?${cosProcess}`;
+    }
+
+    return originalUrl;
 }
 
 // 渲染历史记录列表
@@ -331,7 +336,7 @@ function renderHistoryList(history) {
 
     history.forEach(item => {
         // 获取缩略图URL（米游社渠道使用OSS图片处理）
-        const thumbnailUrl = getOssThumbnailUrl(item.file_url, item.channel);
+        const thumbnailUrl = getThumbnailUrl(item.file_url, item.channel);
 
         const historyItem = document.createElement('div');
         historyItem.className = 'history-item';
