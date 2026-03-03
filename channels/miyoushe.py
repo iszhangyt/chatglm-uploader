@@ -66,6 +66,10 @@ class MiyousheChannel(BaseChannel):
         """获取渠道名称"""
         return "miyoushe"
     
+    def get_display_name(self):
+        """获取渠道显示名称"""
+        return "米游社"
+    
     def _init_device_info(self):
         """初始化 App 端伪装设备信息"""
         self.device_id = "8324a729-7d71-352a-97af-6b1c6689aba9"

@@ -40,10 +40,10 @@
                     <div class="channel-selector">
                         <label for="channel-select">上传渠道</label>
                         <select id="channel-select" name="channel">
-                            <option value="miyoushe" selected>米游社</option>
-                            <option value="chatglm">ChatGLM</option>
-                            <option value="jd">京东</option>
-                            <option value="xiaoheihe">小黑盒</option>
+                            {% for ch in channels %}
+                            <option value="{{ ch.name }}" {% if ch.name==default_channel %} selected{% endif %}>{{
+                                ch.display_name }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </form>
@@ -131,6 +131,7 @@
     <div class="toast" id="toast" hidden></div>
 
     <!-- 加载脚本 -->
+    <script id="channel-limits" type="application/json">{{ channel_limits | tojson }}</script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 

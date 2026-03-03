@@ -322,20 +322,16 @@ function getThumbnailUrl(originalUrl, channel) {
     return originalUrl;
 }
 
+// 渠道名称映射（从页面内嵌 JSON 数据获取）
+const channelDataEl = document.getElementById('channel-data');
+const channelMap = channelDataEl ? JSON.parse(channelDataEl.textContent) : {};
+
 // 渲染历史记录列表
 function renderHistoryList(history) {
     historyList.innerHTML = '';
 
-    // 渠道名称映射
-    const channelMap = {
-        'miyoushe': '米游社',
-        'chatglm': 'ChatGLM',
-        'jd': '京东',
-        'xiaoheihe': '小黑盒'
-    };
-
     history.forEach(item => {
-        // 获取缩略图URL（米游社渠道使用OSS图片处理）
+        // 获取缩略图URL（支持米游社OSS和小黑盒COS图片处理）
         const thumbnailUrl = getThumbnailUrl(item.file_url, item.channel);
 
         const historyItem = document.createElement('div');

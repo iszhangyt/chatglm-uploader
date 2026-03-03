@@ -176,6 +176,10 @@ class XiaoheiheChannel(BaseChannel):
         """获取渠道名称"""
         return "xiaoheihe"
 
+    def get_display_name(self):
+        """获取渠道显示名称"""
+        return "小黑盒"
+
     def _parse_cookie(self) -> dict:
         """解析 Cookie 字符串为字典"""
         cookies = {}

@@ -77,14 +77,10 @@ function getImageOrientation(width, height) {
 }
 
 /**
- * 渠道名称映射
+ * 渠道名称映射（从页面内嵌 JSON 数据获取）
  */
-const channelMap = {
-    'miyoushe': '米游社',
-    'chatglm': 'ChatGLM',
-    'jd': '京东',
-    'xiaoheihe': '小黑盒'
-};
+const channelDataEl = document.getElementById('channel-data');
+const channelMap = channelDataEl ? JSON.parse(channelDataEl.textContent) : {};
 
 /**
  * 根据窗口宽度计算列数

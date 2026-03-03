@@ -16,6 +16,10 @@ class ChatGLMChannel(BaseChannel):
         """获取渠道名称"""
         return "chatglm"
     
+    def get_display_name(self):
+        """获取渠道显示名称"""
+        return "ChatGLM"
+    
     def upload(self, temp_file_path, file):
         """
         上传到ChatGLM图床

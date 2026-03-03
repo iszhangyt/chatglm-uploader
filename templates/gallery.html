@@ -43,10 +43,9 @@
                 <label for="channel-filter">渠道：</label>
                 <select id="channel-filter">
                     <option value="">全部</option>
-                    <option value="miyoushe">米游社</option>
-                    <option value="chatglm">ChatGLM</option>
-                    <option value="jd">京东</option>
-                    <option value="xiaoheihe">小黑盒</option>
+                    {% for ch in channels %}
+                    <option value="{{ ch.name }}">{{ ch.display_name }}</option>
+                    {% endfor %}
                 </select>
             </div>
             <div class="filter-group">
@@ -113,6 +112,7 @@
     <!-- Viewer.js -->
     <script async src="https://cdn.bootcdn.net/ajax/libs/viewerjs/1.11.7/viewer.min.js"></script>
     <!-- 画廊脚本 -->
+    <script id="channel-data" type="application/json">{{ channel_map | tojson }}</script>
     <script src="{{ url_for('static', filename='js/gallery.js') }}"></script>
 </body>
 

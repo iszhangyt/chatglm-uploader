@@ -254,12 +254,9 @@ function handleFileSelect(e) {
     }
 }
 
-// 渠道文件大小限制配置（单位：MB）
-const CHANNEL_SIZE_LIMITS = {
-    'miyoushe': 20,
-    'chatglm': null,  // null 表示无限制
-    'jd': null
-};
+// 渠道文件大小限制配置（从页面内嵌 JSON 数据获取，单位：MB，null 表示无限制）
+const channelLimitsEl = document.getElementById('channel-limits');
+const CHANNEL_SIZE_LIMITS = channelLimitsEl ? JSON.parse(channelLimitsEl.textContent) : {};
 
 // 获取当前渠道的文件大小限制
 function getChannelSizeLimit() {
@@ -283,6 +280,7 @@ function handleFiles(files) {
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
     if (!validTypes.includes(file.type)) {
         showToast('请选择支持的图片格式：JPG, PNG, GIF, BMP, WEBP', 'error');
+        fileInput.value = '';
         return;
     }
 
@@ -292,6 +290,7 @@ function handleFiles(files) {
         const fileSizeMB = file.size / (1024 * 1024);
         if (fileSizeMB > sizeLimit) {
             showToast(`文件大小 ${fileSizeMB.toFixed(2)}MB 超出限制 ${sizeLimit}MB`, 'error');
+            fileInput.value = '';
             return;
         }
     }

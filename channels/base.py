@@ -73,6 +73,17 @@ class BaseChannel(ABC):
         """
         pass
     
+    def get_display_name(self):
+        """
+        获取渠道显示名称（用于前端展示）
+        
+        子类可覆写此方法提供本地化名称，默认返回渠道标识符。
+        
+        返回:
+            str - 渠道的显示名称
+        """
+        return self.get_channel_name()
+    
     def log_error(self, message):
         """记录错误日志"""
         logger.error(f"[{self.get_channel_name()}] {message}")

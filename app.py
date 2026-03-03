@@ -621,6 +621,26 @@ def is_safe_url(url: str) -> tuple:
         logger.warning(f"URL 安全验证异常: {str(e)}")
         return False, f"URL 验证失败: 请检查 URL 格式"
 
+@app.context_processor
+def inject_channel_info():
+    """向所有模板注入渠道信息，避免前端硬编码"""
+    channels = []
+    channel_map = {}
+    channel_limits = {}
+    for name, ch in channel_manager.get_all_channels().items():
+        display_name = ch.get_display_name()
+        max_size = ch.get_max_file_size()
+        channels.append({'name': name, 'display_name': display_name})
+        channel_map[name] = display_name
+        # 转换为 MB，None 表示无限制
+        channel_limits[name] = round(max_size / (1024 * 1024)) if max_size else None
+    return {
+        'channels': channels,
+        'channel_map': channel_map,
+        'channel_limits': channel_limits,
+        'default_channel': channel_manager.get_default_channel_name(),
+    }
+
 @app.route('/')
 def index():
     return render_template('index.html')

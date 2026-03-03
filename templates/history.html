@@ -201,6 +201,7 @@
     <!-- Viewer.js - async 独立加载，不阻塞其他脚本 -->
     <script async src="https://cdn.bootcdn.net/ajax/libs/viewerjs/1.11.7/viewer.min.js"></script>
     <!-- 主脚本 - 正常加载，不等待 viewer.js -->
+    <script id="channel-data" type="application/json">{{ channel_map | tojson }}</script>
     <script src="{{ url_for('static', filename='js/history.js') }}"></script>
 </body>
 

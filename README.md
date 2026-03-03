@@ -1,9 +1,9 @@
 # FusionPic
 
-多渠道聚合图床服务，支持米游社、ChatGLM、京东等多个上传渠道。
+多渠道聚合图床服务，支持米游社、ChatGLM、京东、小黑盒等多个上传渠道。
 
 ## 功能
-- 支持多渠道上传图片（米游社、ChatGLM、京东）
+- 支持多渠道上传图片（米游社、ChatGLM、京东、小黑盒）
 - 获取图片URL并显示
 - 一键复制图片链接、HTML代码、Markdown格式
 - 查看和管理上传历史
@@ -101,9 +101,10 @@ docker compose logs
 
 | 渠道 | 标识 | 说明 |
 |------|------|------|
-| 米游社 | miyoushe | 默认渠道，稳定可靠 |
+| 米游社 | miyoushe | 默认渠道，上传至阿里云 OSS，限制 20MB |
 | ChatGLM | chatglm | ChatGLM 图床 |
 | 京东 | jd | 京东反馈系统图床 |
+| 小黑盒 | xiaoheihe | 上传至腾讯云 COS，限制 20MB |
 
 ## 技术栈
 - 后端：Flask (Python)

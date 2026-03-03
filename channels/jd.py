@@ -16,6 +16,10 @@ class JDChannel(BaseChannel):
         """获取渠道名称"""
         return "jd"
     
+    def get_display_name(self):
+        """获取渠道显示名称"""
+        return "京东"
+    
     def upload(self, temp_file_path, file):
         """
         上传到京东图床
