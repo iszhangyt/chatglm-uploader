@@ -325,7 +325,8 @@ function renderHistoryList(history) {
     const channelMap = {
         'miyoushe': '米游社',
         'chatglm': 'ChatGLM',
-        'jd': '京东'
+        'jd': '京东',
+        'xiaoheihe': '小黑盒'
     };
 
     history.forEach(item => {

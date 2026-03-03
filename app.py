@@ -340,7 +340,7 @@ def random_image():
     随机图片接口
     
     查询参数:
-        channel: 可选，指定渠道 (miyoushe, chatglm, jd)
+        channel: 可选，指定渠道 (miyoushe, chatglm, jd, xiaoheihe)
         w: 可选，设备屏幕宽度
         h: 可选，设备屏幕高度
         orientation: 可选，指定方向 (landscape=横屏, portrait=竖屏, auto=自动检测[默认])

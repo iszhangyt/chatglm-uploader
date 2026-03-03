@@ -12,6 +12,8 @@ channels/
 ├── base.py          # 基类定义
 ├── chatglm.py       # ChatGLM渠道
 ├── jd.py            # 京东渠道
+├── miyoushe.py      # 米游社渠道
+├── xiaoheihe.py     # 小黑盒渠道
 └── README.md        # 本文档
 ```
 
@@ -164,6 +166,17 @@ curl -X POST http://localhost:5500/upload_from_url \
 - 上传到京东反馈系统的图床
 - 构建京东CDN URL
 - 使用本地验证的图片尺寸
+
+### 米游社（miyoushe）
+- 支持网页端和 App 端两种模式
+- 上传到阿里云 OSS
+- 需要配置 Cookie
+
+### 小黑盒（xiaoheihe）
+- 上传到腾讯云 COS（四步流程：获取路径→获取凭证→PUT 上传→回调确认）
+- 自实现 COS URI 签名和 hkey 请求签名
+- 需要配置 Cookie（从浏览器抓取）
+- 最大文件限制 20MB
 
 ## 注意事项
 

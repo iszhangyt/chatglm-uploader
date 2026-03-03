@@ -33,6 +33,9 @@ DEFAULTS = {
         'cookie': '',
         'app_cookie': '',
     },
+    'xiaoheihe': {
+        'cookie': '',
+    },
 }
 
 
