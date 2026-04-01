@@ -7,6 +7,7 @@ from .chatglm import ChatGLMChannel
 from .jd import JDChannel
 from .miyoushe import MiyousheChannel
 from .xiaoheihe import XiaoheiheChannel
+from .si399 import Si399Channel
 from config import get_config
 
 
@@ -24,6 +25,7 @@ class ChannelManager:
         self.register(ChatGLMChannel())
         self.register(JDChannel())
         self.register(XiaoheiheChannel())
+        self.register(Si399Channel())
     
     def register(self, channel):
         """

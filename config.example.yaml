@@ -25,7 +25,7 @@ proxy: ""
 
 # 上传渠道配置
 channel:
-  default: "miyoushe"    # 默认上传渠道: miyoushe, chatglm, jd, xiaoheihe
+  default: "miyoushe"    # 默认上传渠道: miyoushe, chatglm, jd, xiaoheihe, 4399
 
 # 米游社渠道配置
 miyoushe:
@@ -36,3 +36,10 @@ miyoushe:
 # 小黑盒渠道配置
 xiaoheihe:
   cookie: ""             # 从浏览器抓取的完整 Cookie（需包含 user_pkey、x_xhh_tokenid 等字段）
+
+# 4399 渠道配置
+si399:
+  user_agent: ""         # User-Agent 请求头
+  mauth: ""              # mauth 请求头
+  mauthcode: ""          # mauthcode 请求头
+  pauth: ""              # pauth 请求头

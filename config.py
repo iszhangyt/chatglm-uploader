@@ -36,6 +36,12 @@ DEFAULTS = {
     'xiaoheihe': {
         'cookie': '',
     },
+    'si399': {
+        'user_agent': '',
+        'mauth': '',
+        'mauthcode': '',
+        'pauth': '',
+    },
 }
 
 

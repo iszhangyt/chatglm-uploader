@@ -16,6 +16,7 @@ channels/
 ├── jd.py            # 京东渠道
 ├── miyoushe.py      # 米游社渠道
 ├── xiaoheihe.py     # 小黑盒渠道
+├── si399.py         # 4399 渠道
 └── README.md        # 本文档
 ```
 
@@ -250,6 +251,13 @@ curl -X POST http://localhost:5500/upload_from_url \
 - 需要配置 Cookie（从浏览器抓取）
 - 最大文件限制 20MB
 - 画廊/历史记录支持 COS 数据万象缩略图加速
+
+### 4399（4399）
+- 上传到 4399 论坛图床（单步 POST 上传）
+- 需要配置 4 个特殊请求头（user_agent, mauth, mauthcode, pauth）
+- 图片 CDN 地址: `https://fs.img4399.com/bbs/`
+- 无文件大小限制
+- 使用本地验证的图片尺寸
 
 ## 注意事项
 
