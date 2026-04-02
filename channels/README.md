@@ -258,6 +258,7 @@ curl -X POST http://localhost:5500/upload_from_url \
 - 图片 CDN 地址: `https://fs.img4399.com/bbs/`
 - 无文件大小限制
 - 使用本地验证的图片尺寸
+- 画廊/历史记录支持 CDN 缩略图加速（`~宽x高` 参数）
 
 ## 注意事项
 

@@ -62,6 +62,15 @@ function getThumbnailUrl(originalUrl, channel) {
         return `${originalUrl}?${cosProcess}`;
     }
 
+    if (channel === '4399') {
+        // 4399 缩略图：在路径末尾（查询参数之前）拼接尺寸参数
+        const qIdx = originalUrl.indexOf('?');
+        if (qIdx !== -1) {
+            return `${originalUrl.substring(0, qIdx)}~740x0${originalUrl.substring(qIdx)}`;
+        }
+        return `${originalUrl}~740x0`;
+    }
+
     return originalUrl;
 }
 

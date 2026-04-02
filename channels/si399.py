@@ -17,8 +17,8 @@ from config import get_config
 class Si399Channel(BaseChannel):
     """4399 图床上传渠道"""
 
-    # 最大文件大小限制：20MB
-    # MAX_FILE_SIZE = 20 * 1024 * 1024
+    # 最大文件大小限制：10MB
+    MAX_FILE_SIZE = 10 * 1024 * 1024
 
     # 上传 API 地址
     UPLOAD_URL = "https://mapi.yxhapi2.com/forums/box/android/v2.1/upload-image.html"
